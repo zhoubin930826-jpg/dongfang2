@@ -21,6 +21,30 @@
         />
         
         <template v-if="!error && industryInfo">
+          <!-- 时间筛选 -->
+          <el-form :inline="true" class="time-filter-form" @submit.prevent="handleTimeFilter">
+            <el-form-item label="开始时间">
+              <el-date-picker
+                v-model="dateRange[0]"
+                type="date"
+                placeholder="选择开始日期"
+                format="YYYY年MM月DD日"
+                value-format="YYYY-MM-DD"
+                @change="handleTimeFilter"
+              />
+            </el-form-item>
+            <el-form-item label="结束时间">
+              <el-date-picker
+                v-model="dateRange[1]"
+                type="date"
+                placeholder="选择结束日期"
+                format="YYYY年MM月DD日"
+                value-format="YYYY-MM-DD"
+                @change="handleTimeFilter"
+              />
+            </el-form-item>
+          </el-form>
+          
           <!-- 基础信息 -->
           <el-card class="info-card" :body-style="{ padding: '10px' }">
             <el-descriptions :column="6" border>
@@ -150,6 +174,8 @@ const loading = ref(false)
 const error = ref('')
 const industryInfo = ref<any>(null)
 const klineData = ref<any[]>([])
+const originalKlineData = ref<any[]>([]) // 存储原始数据
+const dateRange = ref<string[]>([undefined, undefined]) // 正确初始化数组
 
 // 图表引用
 const openChartRef = ref<HTMLElement>()
@@ -177,6 +203,37 @@ let turnoverChart: echarts.ECharts | null = null
 // 处理返回按钮
 const handleBack = () => {
   router.push('/industry-base')
+}
+
+// 处理时间筛选
+const handleTimeFilter = () => {
+  const [startDate, endDate] = dateRange.value
+  
+  // 过滤数据
+  if (startDate || endDate) {
+    klineData.value = originalKlineData.value.filter(item => {
+      const itemDate = item.time
+      let matchStart = true
+      let matchEnd = true
+      
+      if (startDate) {
+        matchStart = itemDate >= startDate
+      }
+      if (endDate) {
+        matchEnd = itemDate <= endDate
+      }
+      
+      return matchStart && matchEnd
+    })
+  } else {
+    // 如果都没选，使用原始数据
+    klineData.value = [...originalKlineData.value]
+  }
+  
+  // 重新初始化图表
+  nextTick(() => {
+    initCharts()
+  })
 }
 
 // 获取行业代码
@@ -250,6 +307,8 @@ const fetchIndustryKlineData = async () => {
           console.log('数据字段检查 - changeAmount:', klineData.value[0].changeAmount)
           console.log('数据字段检查 - turnover:', klineData.value[0].turnover)
         }
+        // 存储原始数据
+        originalKlineData.value = [...klineData.value]
         // 初始化图表
         console.log('准备初始化图表...')
         // 使用 nextTick 确保 DOM 更新后再初始化图表
@@ -523,6 +582,10 @@ onBeforeUnmount(() => {
 }
 
 .error-alert {
+  margin-bottom: 20px;
+}
+
+.time-filter-form {
   margin-bottom: 20px;
 }
 

@@ -42,6 +42,30 @@
             <el-table-column label="值" prop="值" />
           </el-table>
           
+          <!-- 时间筛选 -->
+          <el-form :inline="true" class="time-filter-form" @submit.prevent="handleTimeFilter">
+            <el-form-item label="开始时间">
+              <el-date-picker
+                v-model="dateRange[0]"
+                type="date"
+                placeholder="选择开始日期"
+                format="YYYY年MM月DD日"
+                value-format="YYYY-MM-DD"
+                @change="handleTimeFilter"
+              />
+            </el-form-item>
+            <el-form-item label="结束时间">
+              <el-date-picker
+                v-model="dateRange[1]"
+                type="date"
+                placeholder="选择结束日期"
+                format="YYYY年MM月DD日"
+                value-format="YYYY-MM-DD"
+                @change="handleTimeFilter"
+              />
+            </el-form-item>
+          </el-form>
+          
           <!-- 图表区域 -->
           <div class="charts-container">
             <el-row :gutter="20">
@@ -157,6 +181,8 @@ const loading = ref(false)
 const error = ref('')
 const stockInfo = ref<any>(null)
 const klineData = ref<any[]>([])
+const originalKlineData = ref<any[]>([])
+const dateRange = ref<string[]>([undefined, undefined]) // 正确初始化数组
 
 // 图表引用
 const openChartRef = ref<HTMLElement>()
@@ -219,6 +245,37 @@ const formatAmount = (value: number | string): string => {
     return (num / 10000).toFixed(2) + '万'
   }
   return num.toString()
+}
+
+// 处理时间筛选
+const handleTimeFilter = () => {
+  const [startDate, endDate] = dateRange.value
+  
+  // 过滤数据
+  if (startDate || endDate) {
+    klineData.value = originalKlineData.value.filter(item => {
+      const itemDate = item.time
+      let matchStart = true
+      let matchEnd = true
+      
+      if (startDate) {
+        matchStart = itemDate >= startDate
+      }
+      if (endDate) {
+        matchEnd = itemDate <= endDate
+      }
+      
+      return matchStart && matchEnd
+    })
+  } else {
+    // 如果都没选，使用原始数据
+    klineData.value = [...originalKlineData.value]
+  }
+  
+  // 重新初始化图表
+  nextTick(() => {
+    initCharts()
+  })
 }
 
 // 解析K线数据
@@ -302,6 +359,7 @@ const fetchStockData = async () => {
     
     stockInfo.value = realData
     klineData.value = klineResult
+    originalKlineData.value = [...klineResult]
     
     // 初始化图表
     if (klineData.value.length > 0) {
@@ -537,6 +595,10 @@ onBeforeUnmount(() => {
 }
 
 .stock-code-form {
+  margin-bottom: 20px;
+}
+
+.time-filter-form {
   margin-bottom: 20px;
 }
 
