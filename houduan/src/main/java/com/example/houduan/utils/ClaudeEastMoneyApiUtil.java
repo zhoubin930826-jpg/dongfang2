@@ -190,7 +190,7 @@ public class ClaudeEastMoneyApiUtil {
         
         // 基础请求头
         conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
-        conn.setRequestProperty("Accept-Encoding", "gzip, deflate, br");
+        conn.setRequestProperty("Accept-Encoding", "gzip");
         conn.setRequestProperty("Accept-Language", acceptLanguage);
         conn.setRequestProperty("User-Agent", userAgent);
         conn.setRequestProperty("Cookie", currentCookie);
