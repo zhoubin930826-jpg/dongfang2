@@ -12,7 +12,7 @@
         <el-form-item label="股票代码">
           <el-input
             v-model="stockCode"
-            placeholder="请输入股票代码，例如：300059"
+            placeholder="请输入股票代码，例如：600960"
             maxlength="6"
             show-word-limit
             @keyup.enter="fetchStockData"
@@ -73,36 +73,9 @@
               <el-col :span="24">
                 <el-card class="chart-card">
                   <template #header>
-                    <span>开盘价</span>
+                    <span>价格走势</span>
                   </template>
-                  <div ref="openChartRef" class="chart"></div>
-                </el-card>
-              </el-col>
-              
-              <el-col :span="24">
-                <el-card class="chart-card">
-                  <template #header>
-                    <span>收盘价</span>
-                  </template>
-                  <div ref="closeChartRef" class="chart"></div>
-                </el-card>
-              </el-col>
-              
-              <el-col :span="24">
-                <el-card class="chart-card">
-                  <template #header>
-                    <span>最高价</span>
-                  </template>
-                  <div ref="highChartRef" class="chart"></div>
-                </el-card>
-              </el-col>
-              
-              <el-col :span="24">
-                <el-card class="chart-card">
-                  <template #header>
-                    <span>最低价</span>
-                  </template>
-                  <div ref="lowChartRef" class="chart"></div>
+                  <div ref="priceChartRef" class="chart"></div>
                 </el-card>
               </el-col>
               
@@ -176,7 +149,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
 
-const stockCode = ref('300059') // 默认东方财富
+const stockCode = ref('600960') // 默认东方财富
 const loading = ref(false)
 const error = ref('')
 const stockInfo = ref<any>(null)
@@ -185,10 +158,7 @@ const originalKlineData = ref<any[]>([])
 const dateRange = ref<string[]>([undefined, undefined]) // 正确初始化数组
 
 // 图表引用
-const openChartRef = ref<HTMLElement>()
-const closeChartRef = ref<HTMLElement>()
-const highChartRef = ref<HTMLElement>()
-const lowChartRef = ref<HTMLElement>()
+const priceChartRef = ref<HTMLElement>()
 const volumeChartRef = ref<HTMLElement>()
 const amountChartRef = ref<HTMLElement>()
 const amplitudeChartRef = ref<HTMLElement>()
@@ -196,10 +166,7 @@ const changePercentChartRef = ref<HTMLElement>()
 const changeAmountChartRef = ref<HTMLElement>()
 const turnoverChartRef = ref<HTMLElement>()
 
-let openChart: echarts.ECharts | null = null
-let closeChart: echarts.ECharts | null = null
-let highChart: echarts.ECharts | null = null
-let lowChart: echarts.ECharts | null = null
+let priceChart: echarts.ECharts | null = null
 let volumeChart: echarts.ECharts | null = null
 let amountChart: echarts.ECharts | null = null
 let amplitudeChart: echarts.ECharts | null = null
@@ -361,6 +328,28 @@ const fetchStockData = async () => {
     klineData.value = klineResult
     originalKlineData.value = [...klineResult]
     
+    // 设置默认时间范围（近2个月）
+    if (originalKlineData.value.length > 0) {
+      // 找出最大时间
+      const maxTimeStr = originalKlineData.value.reduce((max, item) => {
+        return item.time > max ? item.time : max
+      }, originalKlineData.value[0].time)
+      // 计算两个月前的时间
+      const endDate = new Date(maxTimeStr)
+      const startDate = new Date(endDate)
+      startDate.setMonth(startDate.getMonth() - 2)
+      // 格式化日期为 YYYY-MM-DD
+      const formatDate = (date: Date): string => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+      dateRange.value = [formatDate(startDate), formatDate(endDate)]
+      // 应用时间筛选
+      handleTimeFilter()
+    }
+    
     // 初始化图表
     if (klineData.value.length > 0) {
       nextTick(() => {
@@ -409,10 +398,7 @@ const stockDataList = computed(() => {
 const initCharts = () => {
   if (klineData.value.length === 0) return
   
-  initOpenChart()
-  initCloseChart()
-  initHighChart()
-  initLowChart()
+  initPriceChart()
   initVolumeChart()
   initAmountChart()
   initAmplitudeChart()
@@ -480,28 +466,114 @@ const initSingleChart = (chartRef: any, title: string, data: number[], color: st
   }
 }
 
-// 初始化开盘价图表
-const initOpenChart = () => {
-  const openPrices = klineData.value.map(item => item.open)
-  openChart = initSingleChart(openChartRef, '开盘价', openPrices, '#409eff')
-}
-
-// 初始化收盘价图表
-const initCloseChart = () => {
-  const closePrices = klineData.value.map(item => item.close)
-  closeChart = initSingleChart(closeChartRef, '收盘价', closePrices, '#f56c6c')
-}
-
-// 初始化最高价图表
-const initHighChart = () => {
-  const highPrices = klineData.value.map(item => item.high)
-  highChart = initSingleChart(highChartRef, '最高价', highPrices, '#67c23a')
-}
-
-// 初始化最低价图表
-const initLowChart = () => {
-  const lowPrices = klineData.value.map(item => item.low)
-  lowChart = initSingleChart(lowChartRef, '最低价', lowPrices, '#e6a23c')
+// 初始化价格走势图表（包含开盘价、收盘价、最高价、最低价）
+const initPriceChart = () => {
+  console.log('开始初始化价格走势图表')
+  if (!priceChartRef.value) {
+    console.error('价格走势图表DOM元素不存在')
+    return
+  }
+  
+  try {
+    const chart = echarts.init(priceChartRef.value)
+    console.log('价格走势图表实例创建成功:', chart)
+    
+    const times = klineData.value.map(item => item.time)
+    const openPrices = klineData.value.map(item => item.open)
+    const closePrices = klineData.value.map(item => item.close)
+    const highPrices = klineData.value.map(item => item.high)
+    const lowPrices = klineData.value.map(item => item.low)
+    
+    console.log('价格数据准备完成')
+    console.log('开盘价数据:', openPrices)
+    console.log('收盘价数据:', closePrices)
+    console.log('最高价数据:', highPrices)
+    console.log('最低价数据:', lowPrices)
+    
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'cross'
+        }
+      },
+      legend: {
+        data: ['开盘价', '收盘价', '最高价', '最低价'],
+        top: 0
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        top: '15%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: times,
+        axisLabel: {
+          rotate: 45
+        }
+      },
+      yAxis: {
+        type: 'value'
+      },
+      series: [
+        {
+          name: '开盘价',
+          type: 'line',
+          data: openPrices,
+          smooth: true,
+          lineStyle: {
+            width: 2,
+            color: '#409eff'
+          }
+        },
+        {
+          name: '收盘价',
+          type: 'line',
+          data: closePrices,
+          smooth: true,
+          lineStyle: {
+            width: 2,
+            color: '#f56c6c'
+          }
+        },
+        {
+          name: '最高价',
+          type: 'line',
+          data: highPrices,
+          smooth: true,
+          lineStyle: {
+            width: 2,
+            color: '#67c23a'
+          }
+        },
+        {
+          name: '最低价',
+          type: 'line',
+          data: lowPrices,
+          smooth: true,
+          lineStyle: {
+            width: 2,
+            color: '#e6a23c'
+          }
+        }
+      ]
+    }
+    
+    console.log('价格走势图表配置:', option)
+    chart.setOption(option)
+    console.log('价格走势图表配置设置成功')
+    
+    // 立即调用resize，确保图表适应容器大小
+    chart.resize()
+    
+    priceChart = chart
+  } catch (error) {
+    console.error('价格走势图表初始化失败:', error)
+  }
 }
 
 // 初始化成交量图表
@@ -542,10 +614,7 @@ const initTurnoverChart = () => {
 
 // 监听窗口大小变化，调整图表大小
 const handleResize = () => {
-  openChart?.resize()
-  closeChart?.resize()
-  highChart?.resize()
-  lowChart?.resize()
+  priceChart?.resize()
   volumeChart?.resize()
   amountChart?.resize()
   amplitudeChart?.resize()
@@ -562,10 +631,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
-  openChart?.dispose()
-  closeChart?.dispose()
-  highChart?.dispose()
-  lowChart?.dispose()
+  priceChart?.dispose()
   volumeChart?.dispose()
   amountChart?.dispose()
   amplitudeChart?.dispose()
