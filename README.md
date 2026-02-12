@@ -79,10 +79,14 @@ houduan/
 ├── src/
 │   ├── main/
 │   │   ├── java/com/example/houduan/
+│   │   │   ├── config/          # 配置类
+│   │   │   │   └── CrawlerConfig.java
 │   │   │   ├── controller/      # 控制器
 │   │   │   │   └── EastMoneyController.java
 │   │   │   ├── utils/           # 工具类
-│   │   │   │   └── EastMoneyApiUtil.java
+│   │   │   │   ├── ClaudeEastMoneyApiUtil.java
+│   │   │   │   ├── EastMoneyApiUtil.java
+│   │   │   │   └── 优化说明.md
 │   │   │   └── HouduanApplication.java  # 应用入口
 │   │   └── resources/
 │   │       └── application.properties    # 配置文件
@@ -93,7 +97,9 @@ houduan/
 ### 主要组件
 1. **EastMoneyController**：控制器，处理前端请求
 2. **EastMoneyApiUtil**：工具类，处理东方财富API相关操作
-3. **HouduanApplication**：应用主类，启动Spring Boot应用
+3. **ClaudeEastMoneyApiUtil**：增强版工具类，处理东方财富API相关操作
+4. **CrawlerConfig**：爬虫配置类
+5. **HouduanApplication**：应用主类，启动Spring Boot应用
 
 ### 命令
 - **构建项目**：`mvn clean package`
