@@ -10,7 +10,6 @@ public class HouduanApplication {
 
     public static void main(String[] args) {
         // 初始化 EastMoney API 工具，获取 Cookie
-        EastMoneyApiUtil.init();
         SpringApplication.run(HouduanApplication.class, args);
     }
 
