@@ -19,7 +19,14 @@
         
         <div v-if="!error && stockPoolData.length > 0" class="table-container">
           <el-table :data="stockPoolData" style="width: 100%" border height="calc(100vh - 300px)" max-height="calc(100vh - 300px)" :row-key="row => row.f12">
-            <el-table-column prop="f12" label="代码" width="100" />
+            <el-table-column label="操作" width="100">
+              <template #default="scope">
+                <el-button size="small" type="primary" @click="goToRealData(scope.row.f12)">
+                  实盘数据
+                </el-button>
+              </template>
+            </el-table-column>
+            <el-table-column prop="f12" label="股票代码" width="100" />
             <el-table-column prop="f14" label="名称" width="120" />
             <el-table-column prop="f2" label="最新价" width="100">
               <template #default="scope">
@@ -164,14 +171,35 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 
+const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const stockPoolData = ref<any[]>([])
 const currentPage = ref(1)
 const pageSize = ref(50)
 const total = ref(0)
+
+// 跳转到实盘委托买卖数据页面
+const goToRealData = (stockCode: any) => {
+  console.log('跳转到实盘数据，股票代码:', stockCode)
+  try {
+    const code = String(stockCode || '')
+    if (!code) {
+      console.error('股票代码为空')
+      return
+    }
+    router.push({
+      path: '/stock-real',
+      query: { stockCode: code }
+    })
+    console.log('跳转成功')
+  } catch (error) {
+    console.error('跳转失败:', error)
+  }
+}
 
 // 格式化数字
 const formatNumber = (value: number | string): string => {

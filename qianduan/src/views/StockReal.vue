@@ -4,6 +4,9 @@
       <template #header>
         <div class="card-header">
           <span>实盘委托买卖数据</span>
+          <el-button size="small" type="default" @click="handleBack">
+            返回
+          </el-button>
         </div>
       </template>
       
@@ -145,10 +148,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import * as echarts from 'echarts'
 
+const router = useRouter()
+const route = useRoute()
 const stockCode = ref('600960') // 默认东方财富
 const loading = ref(false)
 const error = ref('')
@@ -156,6 +162,23 @@ const stockInfo = ref<any>(null)
 const klineData = ref<any[]>([])
 const originalKlineData = ref<any[]>([])
 const dateRange = ref<string[]>([undefined, undefined]) // 正确初始化数组
+
+// 处理返回按钮
+const handleBack = () => {
+  router.push('/stock-pool')
+}
+
+// 监听路由参数变化，获取股票代码
+watch(
+  () => route.query.stockCode,
+  (newStockCode) => {
+    if (newStockCode) {
+      stockCode.value = newStockCode as string
+      fetchStockData()
+    }
+  },
+  { immediate: true }
+)
 
 // 图表引用
 const priceChartRef = ref<HTMLElement>()
@@ -309,8 +332,8 @@ const fetchStockKlineData = async (code: string): Promise<any[]> => {
 
 // 获取股票数据
 const fetchStockData = async () => {
-  if (!stockCode.value || stockCode.value.length !== 6) {
-    error.value = '请输入有效的6位股票代码'
+  if (!stockCode.value) {
+    error.value = '请输入有效的股票代码'
     return
   }
   
@@ -371,7 +394,7 @@ const stockDataList = computed(() => {
   
   return [
     { 参数: '委差', 值: stockInfo.value.f192 },
-    { 参数: '委比', 值: formatPercent(stockInfo.value.f191) },
+    { 参数: '委比', 值: formatPercent(stockInfo.value.f191 / 100) },
     { 参数: '卖5', 值: formatNumber(stockInfo.value.f32) },
     { 参数: '卖4', 值: formatNumber(stockInfo.value.f34) },
     { 参数: '卖3', 值: formatNumber(stockInfo.value.f36) },
@@ -385,9 +408,9 @@ const stockDataList = computed(() => {
     { 参数: '内盘', 值: formatVolume(stockInfo.value.f161) },
     { 参数: '外盘', 值: formatVolume(stockInfo.value.f49) },
     { 参数: '成交额', 值: formatAmount(stockInfo.value.f48) },
-    { 参数: '换手率', 值: formatPercent(stockInfo.value.f168) },
+    { 参数: '换手率', 值: formatPercent(stockInfo.value.f168 / 100) },
     { 参数: '量比', 值: formatNumber(stockInfo.value.f50) },
-    { 参数: '均价', 值: formatNumber(stockInfo.value.f71) },
+    { 参数: '均价', 值: formatNumber(stockInfo.value.f71 / 100) },
     { 参数: '股票代码', 值: stockInfo.value.f57 },
     { 参数: '股票名称', 值: stockInfo.value.f58 },
     { 参数: '所属板块', 值: stockInfo.value.f128 }
