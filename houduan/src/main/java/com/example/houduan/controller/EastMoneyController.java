@@ -41,7 +41,11 @@ public class EastMoneyController {
     // 读取股票池
     @GetMapping("/api/stock/pool")
     public String getStockPoolData(@RequestParam(defaultValue = "1") String pn) {
-        String url = "https://push2.eastmoney.com/api/qt/clist/get?pn=" + pn + "&pz=50&po=1&fs=m:1+t:2,m:1+t:23,m:0+t:6,m:0+t:80&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f100,f102,f103,f128,f136,f115,f152";
+        //m:1+t:2	沪市 A 股
+        //m:1+t:23	沪市科创板
+        //m:0+t:6	深市主板 A 股
+        //m:0+t:80	深市创业板
+        String url = "https://push2.eastmoney.com/api/qt/clist/get?pn=" + pn + "&pz=50&po=1&fid=f3&fs=m:1+t:2&fields=f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f12,f13,f14,f15,f16,f17,f18,f20,f21,f23,f24,f25,f22,f11,f62,f100,f102,f103,f128,f136,f115,f152";
         return EastMoneyApiUtil.fetchData(url);
     }
 }

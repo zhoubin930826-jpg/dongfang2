@@ -184,7 +184,7 @@ const formatNumber = (value: number | string): string => {
 const formatPercent = (value: number | string): string => {
   if (value === undefined || value === null || value === '-') return '-'
   const num = Number(value)
-  return isNaN(num) ? '-' : (num).toFixed(2) + '%'
+  return isNaN(num) ? '-' : (num / 100).toFixed(2) + '%'
 }
 
 // 格式化成交量
