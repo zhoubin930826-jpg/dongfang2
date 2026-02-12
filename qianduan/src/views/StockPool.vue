@@ -23,7 +23,7 @@
             <el-table-column prop="f14" label="名称" width="120" />
             <el-table-column prop="f2" label="最新价" width="100">
               <template #default="scope">
-                {{ formatNumber(scope.row.f2) }}
+                {{ formatNumber(Number(scope.row.f2) / 100) }}
               </template>
             </el-table-column>
             <el-table-column prop="f3" label="涨跌幅" width="100">
@@ -35,8 +35,8 @@
             </el-table-column>
             <el-table-column prop="f4" label="涨跌额" width="100">
               <template #default="scope">
-                <span :class="scope.row.f4 >= 0 ? 'rise' : 'fall'">
-                  {{ formatNumber(scope.row.f4) }}
+                <span :class="Number(scope.row.f4) >= 0 ? 'rise' : 'fall'">
+                  {{ formatNumber(Number(scope.row.f4) / 100) }}
                 </span>
               </template>
             </el-table-column>
@@ -72,22 +72,22 @@
             </el-table-column>
             <el-table-column prop="f15" label="最高" width="100">
               <template #default="scope">
-                {{ formatNumber(scope.row.f15) }}
+                {{ formatNumber(Number(scope.row.f15) / 100) }}
               </template>
             </el-table-column>
             <el-table-column prop="f16" label="最低" width="100">
               <template #default="scope">
-                {{ formatNumber(scope.row.f16) }}
+                {{ formatNumber(Number(scope.row.f16) / 100) }}
               </template>
             </el-table-column>
             <el-table-column prop="f17" label="今开" width="100">
               <template #default="scope">
-                {{ formatNumber(scope.row.f17) }}
+                {{ formatNumber(Number(scope.row.f17) / 100) }}
               </template>
             </el-table-column>
             <el-table-column prop="f18" label="昨收" width="100">
               <template #default="scope">
-                {{ formatNumber(scope.row.f18) }}
+                {{ formatNumber(Number(scope.row.f18) / 100) }}
               </template>
             </el-table-column>
             <el-table-column prop="f20" label="总市值" width="120">
