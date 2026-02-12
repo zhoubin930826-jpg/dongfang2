@@ -26,23 +26,23 @@ public class CrawlerConfig {
         // 初始化工具类
         ClaudeEastMoneyApiUtil.init();
         
-//        // 配置代理
-//        if (proxyEnabled && proxyServers != null && !proxyServers.isEmpty()) {
-//            String[] servers = proxyServers.split(",");
-//            for (String server : servers) {
-//                String[] parts = server.trim().split(":");
-//                if (parts.length == 2) {
-//                    String host = parts[0];
-//                    int port = Integer.parseInt(parts[1]);
-//                    ClaudeEastMoneyApiUtil.addProxy(host, port);
-//                    System.out.println("已添加代理: " + host + ":" + port);
-//                }
-//            }
-//            ClaudeEastMoneyApiUtil.enableProxy(true);
-//            System.out.println("代理模式已启用");
-//        } else {
-//            System.out.println("代理模式未启用，使用本地IP");
-//        }
+        // 配置代理
+        if (proxyEnabled && proxyServers != null && !proxyServers.isEmpty()) {
+            String[] servers = proxyServers.split(",");
+            for (String server : servers) {
+                String[] parts = server.trim().split(":");
+                if (parts.length == 2) {
+                    String host = parts[0];
+                    int port = Integer.parseInt(parts[1]);
+                    ClaudeEastMoneyApiUtil.addProxy(host, port);
+                    System.out.println("已添加代理: " + host + ":" + port);
+                }
+            }
+            ClaudeEastMoneyApiUtil.enableProxy(true);
+            System.out.println("代理模式已启用");
+        } else {
+            System.out.println("代理模式未启用，使用本地IP");
+        }
         
         System.out.println("=======================================================");
     }
