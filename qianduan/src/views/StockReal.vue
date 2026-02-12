@@ -36,115 +36,109 @@
         />
         
         <template v-if="!error && stockInfo">
-          <!-- 股票基本信息 -->
-          <el-card class="info-card" :body-style="{ padding: '10px' }">
-            <el-descriptions :column="4" border>
-              <el-descriptions-item label="股票代码">{{ stockInfo.f57 }}</el-descriptions-item>
-              <el-descriptions-item label="股票名称">{{ stockInfo.f58 }}</el-descriptions-item>
-              <el-descriptions-item label="所属板块">{{ stockInfo.f128 }}</el-descriptions-item>
-              <el-descriptions-item label="均价">{{ formatNumber(stockInfo.f71) }}</el-descriptions-item>
-              <el-descriptions-item label="委差">{{ stockInfo.f192 }}</el-descriptions-item>
-              <el-descriptions-item label="委比">{{ formatPercent(stockInfo.f191) }}</el-descriptions-item>
-              <el-descriptions-item label="内盘">{{ formatVolume(stockInfo.f161) }}</el-descriptions-item>
-              <el-descriptions-item label="外盘">{{ formatVolume(stockInfo.f49) }}</el-descriptions-item>
-              <el-descriptions-item label="成交额">{{ formatAmount(stockInfo.f48) }}</el-descriptions-item>
-              <el-descriptions-item label="换手率">{{ formatPercent(stockInfo.f168) }}</el-descriptions-item>
-              <el-descriptions-item label="量比">{{ formatNumber(stockInfo.f50) }}</el-descriptions-item>
-              <el-descriptions-item label="总市值">{{ formatAmount(stockInfo.f116) }}</el-descriptions-item>
-            </el-descriptions>
-          </el-card>
+          <!-- 股票数据表格 -->
+          <el-table :data="stockDataList" style="width: 100%" border>
+            <el-table-column label="参数" width="120" prop="参数" />
+            <el-table-column label="值" prop="值" />
+          </el-table>
           
-          <!-- 买卖盘口 -->
-          <el-card class="order-card" :body-style="{ padding: '10px' }">
-            <template #header>
-              <span>买卖盘口</span>
-            </template>
-            <div class="order-container">
-              <div class="order-side">
-                <h4>卖盘</h4>
-                <el-table :data="sellOrders" style="width: 100%" size="small" border>
-                  <el-table-column label="卖5" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                  <el-table-column label="卖4" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                  <el-table-column label="卖3" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                  <el-table-column label="卖2" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                  <el-table-column label="卖1" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                </el-table>
-                <el-table :data="sellOrdersVolume" style="width: 100%" size="small" border>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                </el-table>
-              </div>
+          <!-- 图表区域 -->
+          <div class="charts-container">
+            <el-row :gutter="20">
+              <!-- 价格类图表 -->
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>开盘价</span>
+                  </template>
+                  <div ref="openChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
               
-              <div class="order-side">
-                <h4>买盘</h4>
-                <el-table :data="buyOrders" style="width: 100%" size="small" border>
-                  <el-table-column label="买1" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                  <el-table-column label="买2" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                  <el-table-column label="买3" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                  <el-table-column label="买4" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                  <el-table-column label="买5" width="100">
-                    <template #default="scope">{{ formatNumber(scope.row.price) }}</template>
-                  </el-table-column>
-                </el-table>
-                <el-table :data="buyOrdersVolume" style="width: 100%" size="small" border>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                  <el-table-column label="数量" width="100">
-                    <template #default="scope">{{ formatVolume(scope.row.volume) }}</template>
-                  </el-table-column>
-                </el-table>
-              </div>
-            </div>
-          </el-card>
-          
-          <!-- K线图表 -->
-          <el-card class="chart-card" v-if="klineData.length > 0">
-            <template #header>
-              <span>K线数据</span>
-            </template>
-            <div ref="klineChartRef" class="chart"></div>
-          </el-card>
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>收盘价</span>
+                  </template>
+                  <div ref="closeChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
+              
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>最高价</span>
+                  </template>
+                  <div ref="highChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
+              
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>最低价</span>
+                  </template>
+                  <div ref="lowChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
+              
+              <!-- 成交量与成交额 -->
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>成交量</span>
+                  </template>
+                  <div ref="volumeChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
+              
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>成交额</span>
+                  </template>
+                  <div ref="amountChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
+              
+              <!-- 技术指标 -->
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>振幅</span>
+                  </template>
+                  <div ref="amplitudeChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
+              
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>涨跌幅</span>
+                  </template>
+                  <div ref="changePercentChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
+              
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>涨跌额</span>
+                  </template>
+                  <div ref="changeAmountChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
+              
+              <el-col :span="24">
+                <el-card class="chart-card">
+                  <template #header>
+                    <span>换手率</span>
+                  </template>
+                  <div ref="turnoverChartRef" class="chart"></div>
+                </el-card>
+              </el-col>
+            </el-row>
+          </div>
         </template>
         
         <el-empty v-if="!loading && !error && !stockInfo" description="请输入股票代码查询数据" />
@@ -154,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import axios from 'axios'
 import * as echarts from 'echarts'
 
@@ -165,8 +159,27 @@ const stockInfo = ref<any>(null)
 const klineData = ref<any[]>([])
 
 // 图表引用
-const klineChartRef = ref<HTMLElement>()
-let klineChart: echarts.ECharts | null = null
+const openChartRef = ref<HTMLElement>()
+const closeChartRef = ref<HTMLElement>()
+const highChartRef = ref<HTMLElement>()
+const lowChartRef = ref<HTMLElement>()
+const volumeChartRef = ref<HTMLElement>()
+const amountChartRef = ref<HTMLElement>()
+const amplitudeChartRef = ref<HTMLElement>()
+const changePercentChartRef = ref<HTMLElement>()
+const changeAmountChartRef = ref<HTMLElement>()
+const turnoverChartRef = ref<HTMLElement>()
+
+let openChart: echarts.ECharts | null = null
+let closeChart: echarts.ECharts | null = null
+let highChart: echarts.ECharts | null = null
+let lowChart: echarts.ECharts | null = null
+let volumeChart: echarts.ECharts | null = null
+let amountChart: echarts.ECharts | null = null
+let amplitudeChart: echarts.ECharts | null = null
+let changePercentChart: echarts.ECharts | null = null
+let changeAmountChart: echarts.ECharts | null = null
+let turnoverChart: echarts.ECharts | null = null
 
 // 格式化数字
 const formatNumber = (value: number | string): string => {
@@ -231,16 +244,11 @@ const parseKlineData = (klines: string[]): any[] => {
 // 获取股票实时数据
 const fetchStockRealData = async (code: string): Promise<any> => {
   try {
-    const response = await axios.get(`http://localhost:8080/api/stock/real?stockCode=${code}`)
+    const response = await axios.get(`/api/stock/real?stockCode=${code}`)
     console.log('API返回原始数据:', response.data)
     
-    // 解析后端返回的JSON字符串
-    let parsedData
-    if (typeof response.data === 'string') {
-      parsedData = JSON.parse(response.data)
-    } else {
-      parsedData = response.data
-    }
+    // 解析后端返回的JSON
+    const parsedData = response.data
     
     console.log('解析后的数据:', parsedData)
     
@@ -257,20 +265,15 @@ const fetchStockRealData = async (code: string): Promise<any> => {
 // 获取股票K线数据
 const fetchStockKlineData = async (code: string): Promise<any[]> => {
   try {
-    const response = await axios.get(`http://localhost:8080/api/stock/kline?stockCode=${code}`)
+    const response = await axios.get(`/api/stock/kline?stockCode=${code}`)
     console.log('API返回原始数据:', response.data)
     
-    // 解析后端返回的JSON字符串
-    let parsedData
-    if (typeof response.data === 'string') {
-      parsedData = JSON.parse(response.data)
-    } else {
-      parsedData = response.data
-    }
+    // 解析后端返回的JSON
+    const parsedData = response.data
     
     console.log('解析后的数据:', parsedData)
     
-    if (parsedData && parsedData.data && parsedData.data.klines) {
+    if (parsedData && parsedData.rc === 0 && parsedData.data && parsedData.data.klines) {
       return parseKlineData(parsedData.data.klines)
     }
     return []
@@ -291,7 +294,7 @@ const fetchStockData = async () => {
   error.value = ''
   
   try {
-    // 并行请求股票实时数据和K线数据
+    // 并行请求实时数据和K线数据
     const [realData, klineResult] = await Promise.all([
       fetchStockRealData(stockCode.value),
       fetchStockKlineData(stockCode.value)
@@ -300,9 +303,11 @@ const fetchStockData = async () => {
     stockInfo.value = realData
     klineData.value = klineResult
     
-    // 初始化K线图表
+    // 初始化图表
     if (klineData.value.length > 0) {
-      initKlineChart()
+      nextTick(() => {
+        initCharts()
+      })
     }
   } catch (err: any) {
     error.value = err.message || '获取数据失败：网络错误'
@@ -313,185 +318,183 @@ const fetchStockData = async () => {
   }
 }
 
-// 初始化K线图表
-const initKlineChart = () => {
-  if (!klineChartRef.value || klineData.value.length === 0) return
+// 股票数据表格的数据源
+const stockDataList = computed(() => {
+  if (!stockInfo.value) return []
   
-  klineChart = echarts.init(klineChartRef.value)
+  return [
+    { 参数: '委差', 值: stockInfo.value.f192 },
+    { 参数: '委比', 值: formatPercent(stockInfo.value.f191) },
+    { 参数: '卖5', 值: formatNumber(stockInfo.value.f32) },
+    { 参数: '卖4', 值: formatNumber(stockInfo.value.f34) },
+    { 参数: '卖3', 值: formatNumber(stockInfo.value.f36) },
+    { 参数: '卖2', 值: formatNumber(stockInfo.value.f38) },
+    { 参数: '卖1', 值: formatNumber(stockInfo.value.f40) },
+    { 参数: '买1', 值: formatNumber(stockInfo.value.f20) },
+    { 参数: '买2', 值: formatNumber(stockInfo.value.f18) },
+    { 参数: '买3', 值: formatNumber(stockInfo.value.f16) },
+    { 参数: '买4', 值: formatNumber(stockInfo.value.f14) },
+    { 参数: '买5', 值: formatNumber(stockInfo.value.f12) },
+    { 参数: '内盘', 值: formatVolume(stockInfo.value.f161) },
+    { 参数: '外盘', 值: formatVolume(stockInfo.value.f49) },
+    { 参数: '成交额', 值: formatAmount(stockInfo.value.f48) },
+    { 参数: '换手率', 值: formatPercent(stockInfo.value.f168) },
+    { 参数: '量比', 值: formatNumber(stockInfo.value.f50) },
+    { 参数: '均价', 值: formatNumber(stockInfo.value.f71) },
+    { 参数: '股票代码', 值: stockInfo.value.f57 },
+    { 参数: '股票名称', 值: stockInfo.value.f58 },
+    { 参数: '所属板块', 值: stockInfo.value.f128 }
+  ]
+})
+
+// 初始化图表
+const initCharts = () => {
+  if (klineData.value.length === 0) return
   
-  const times = klineData.value.map(item => item.time)
-  const closePrices = klineData.value.map(item => item.close)
-  const volumes = klineData.value.map(item => item.volume)
+  initOpenChart()
+  initCloseChart()
+  initHighChart()
+  initLowChart()
+  initVolumeChart()
+  initAmountChart()
+  initAmplitudeChart()
+  initChangePercentChart()
+  initChangeAmountChart()
+  initTurnoverChart()
+}
+
+// 初始化单个折线图的通用函数
+const initSingleChart = (chartRef: any, title: string, data: number[], color: string) => {
+  if (!chartRef.value) return null
   
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'cross'
-      }
-    },
-    legend: {
-      data: ['收盘价', '成交量'],
-      top: 0
-    },
-    grid: [
-      {
+  try {
+    const chart = echarts.init(chartRef.value)
+    
+    const times = klineData.value.map(item => item.time)
+    
+    const option = {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: {
+          type: 'cross'
+        }
+      },
+      legend: {
+        data: [title],
+        top: 0
+      },
+      grid: {
         left: '3%',
         right: '4%',
-        top: '15%',
-        height: '50%',
+        bottom: '3%',
         containLabel: true
       },
-      {
-        left: '3%',
-        right: '4%',
-        top: '70%',
-        height: '20%',
-        containLabel: true
-      }
-    ],
-    xAxis: [
-      {
+      xAxis: {
         type: 'category',
         boundaryGap: false,
         data: times,
         axisLabel: {
           rotate: 45
-        },
-        axisLine: {
-          lineStyle: {
-            color: '#999'
-          }
         }
       },
-      {
-        type: 'category',
-        boundaryGap: false,
-        data: times,
-        gridIndex: 1,
-        axisLabel: {
-          rotate: 45
-        },
-        axisLine: {
-          lineStyle: {
-            color: '#999'
-          }
-        }
-      }
-    ],
-    yAxis: [
-      {
-        type: 'value',
-        name: '价格',
-        position: 'left',
-        axisLine: {
-          lineStyle: {
-            color: '#409eff'
-          }
-        }
+      yAxis: {
+        type: 'value'
       },
-      {
-        type: 'value',
-        name: '成交量',
-        position: 'right',
-        gridIndex: 1,
-        axisLine: {
+      series: [
+        {
+          name: title,
+          type: 'line',
+          data: data,
+          smooth: true,
           lineStyle: {
-            color: '#f56c6c'
+            width: 2,
+            color: color
           }
         }
-      }
-    ],
-    series: [
-      {
-        name: '收盘价',
-        type: 'line',
-        data: closePrices,
-        smooth: true,
-        lineStyle: {
-          width: 2,
-          color: '#409eff'
-        }
-      },
-      {
-        name: '成交量',
-        type: 'bar',
-        xAxisIndex: 1,
-        yAxisIndex: 1,
-        data: volumes,
-        itemStyle: {
-          color: '#f56c6c'
-        }
-      }
-    ]
+      ]
+    }
+    
+    chart.setOption(option)
+    return chart
+  } catch (error) {
+    console.error(`${title}图表初始化失败:`, error)
+    return null
   }
-  
-  klineChart.setOption(option)
+}
+
+// 初始化开盘价图表
+const initOpenChart = () => {
+  const openPrices = klineData.value.map(item => item.open)
+  openChart = initSingleChart(openChartRef, '开盘价', openPrices, '#409eff')
+}
+
+// 初始化收盘价图表
+const initCloseChart = () => {
+  const closePrices = klineData.value.map(item => item.close)
+  closeChart = initSingleChart(closeChartRef, '收盘价', closePrices, '#f56c6c')
+}
+
+// 初始化最高价图表
+const initHighChart = () => {
+  const highPrices = klineData.value.map(item => item.high)
+  highChart = initSingleChart(highChartRef, '最高价', highPrices, '#67c23a')
+}
+
+// 初始化最低价图表
+const initLowChart = () => {
+  const lowPrices = klineData.value.map(item => item.low)
+  lowChart = initSingleChart(lowChartRef, '最低价', lowPrices, '#e6a23c')
+}
+
+// 初始化成交量图表
+const initVolumeChart = () => {
+  const volumes = klineData.value.map(item => item.volume)
+  volumeChart = initSingleChart(volumeChartRef, '成交量', volumes, '#909399')
+}
+
+// 初始化成交额图表
+const initAmountChart = () => {
+  const amounts = klineData.value.map(item => item.amount)
+  amountChart = initSingleChart(amountChartRef, '成交额', amounts, '#409eff')
+}
+
+// 初始化振幅图表
+const initAmplitudeChart = () => {
+  const amplitudes = klineData.value.map(item => item.amplitude)
+  amplitudeChart = initSingleChart(amplitudeChartRef, '振幅', amplitudes, '#f56c6c')
+}
+
+// 初始化涨跌幅图表
+const initChangePercentChart = () => {
+  const changePercents = klineData.value.map(item => item.changePercent)
+  changePercentChart = initSingleChart(changePercentChartRef, '涨跌幅', changePercents, '#67c23a')
+}
+
+// 初始化涨跌额图表
+const initChangeAmountChart = () => {
+  const changeAmounts = klineData.value.map(item => item.changeAmount)
+  changeAmountChart = initSingleChart(changeAmountChartRef, '涨跌额', changeAmounts, '#e6a23c')
+}
+
+// 初始化换手率图表
+const initTurnoverChart = () => {
+  const turnovers = klineData.value.map(item => item.turnover)
+  turnoverChart = initSingleChart(turnoverChartRef, '换手率', turnovers, '#909399')
 }
 
 // 监听窗口大小变化，调整图表大小
 const handleResize = () => {
-  klineChart?.resize()
+  openChart?.resize()
+  closeChart?.resize()
+  highChart?.resize()
+  lowChart?.resize()
+  volumeChart?.resize()
+  amountChart?.resize()
+  amplitudeChart?.resize()
+  changePercentChart?.resize()
+  changeAmountChart?.resize()
+  turnoverChart?.resize()
 }
-
-// 计算买卖盘口数据
-const sellOrders = ref([
-  { price: 0 }
-])
-const sellOrdersVolume = ref([
-  { volume: 0 }
-])
-const buyOrders = ref([
-  { price: 0 }
-])
-const buyOrdersVolume = ref([
-  { volume: 0 }
-])
-
-// 监听stockInfo变化，更新买卖盘口数据
-const updateOrderData = () => {
-  if (!stockInfo.value) return
-  
-  // 卖盘
-  sellOrders.value = [
-    { price: stockInfo.value.f32 }, // 卖5
-    { price: stockInfo.value.f34 }, // 卖4
-    { price: stockInfo.value.f36 }, // 卖3
-    { price: stockInfo.value.f38 }, // 卖2
-    { price: stockInfo.value.f40 }  // 卖1
-  ]
-  
-  sellOrdersVolume.value = [
-    { volume: stockInfo.value.f31 }, // 卖5
-    { volume: stockInfo.value.f33 }, // 卖4
-    { volume: stockInfo.value.f35 }, // 卖3
-    { volume: stockInfo.value.f37 }, // 卖2
-    { volume: stockInfo.value.f39 }  // 卖1
-  ]
-  
-  // 买盘
-  buyOrders.value = [
-    { price: stockInfo.value.f20 }, // 买1
-    { price: stockInfo.value.f18 }, // 买2
-    { price: stockInfo.value.f16 }, // 买3
-    { price: stockInfo.value.f14 }, // 买4
-    { price: stockInfo.value.f12 }  // 买5
-  ]
-  
-  buyOrdersVolume.value = [
-    { volume: stockInfo.value.f19 }, // 买1
-    { volume: stockInfo.value.f17 }, // 买2
-    { volume: stockInfo.value.f15 }, // 买3
-    { volume: stockInfo.value.f13 }, // 买4
-    { volume: stockInfo.value.f11 }  // 买5
-  ]
-}
-
-// 监听stockInfo变化
-const { watch } = require('vue')
-watch(stockInfo, () => {
-  updateOrderData()
-}, { deep: true })
 
 onMounted(() => {
   // 初始加载默认股票数据
@@ -501,7 +504,16 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
-  klineChart?.dispose()
+  openChart?.dispose()
+  closeChart?.dispose()
+  highChart?.dispose()
+  lowChart?.dispose()
+  volumeChart?.dispose()
+  amountChart?.dispose()
+  amplitudeChart?.dispose()
+  changePercentChart?.dispose()
+  changeAmountChart?.dispose()
+  turnoverChart?.dispose()
 })
 </script>
 
@@ -529,53 +541,39 @@ onBeforeUnmount(() => {
 }
 
 .loading-container {
-  min-height: 400px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
 }
 
 .error-alert {
   margin-bottom: 20px;
 }
 
-.info-card {
-  margin-bottom: 20px;
-}
-
-.order-card {
-  margin-bottom: 20px;
-}
-
-.order-container {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.order-side {
-  flex: 1;
-}
-
-.order-side h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  text-align: center;
-}
-
-.chart-card {
-  margin-top: 20px;
-}
-
-.chart {
-  width: 100%;
-  height: 400px;
-}
-
 .el-table {
-  font-size: 12px;
-  margin-bottom: 10px;
+  font-size: 14px;
+  width: 80% !important;
+  margin: 0 auto 20px;
 }
 
 .el-table th {
   background-color: #f5f7fa;
   font-weight: bold;
+}
+
+.el-table td:first-child {
+  font-weight: 500;
+}
+
+.charts-container {
+  margin-top: 20px;
+}
+
+.chart-card {
+  margin-bottom: 20px;
+}
+
+.chart {
+  width: 100%;
+  height: 400px;
 }
 </style>
