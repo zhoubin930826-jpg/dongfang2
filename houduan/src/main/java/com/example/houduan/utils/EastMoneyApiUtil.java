@@ -76,11 +76,20 @@ public class EastMoneyApiUtil {
             conn.setConnectTimeout(15000);
             conn.setReadTimeout(15000);
 
-            conn.setRequestProperty("Accept", "*/*");
+            // 增加更多浏览器特征请求头
+            conn.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
             conn.setRequestProperty("Accept-Encoding", "gzip, deflate");
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            conn.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0");
             conn.setRequestProperty("Referer", "https://quote.eastmoney.com/");
             conn.setRequestProperty("Cookie", cookieString);
+            conn.setRequestProperty("Connection", "keep-alive");
+            conn.setRequestProperty("Upgrade-Insecure-Requests", "1");
+            conn.setRequestProperty("Sec-Fetch-Dest", "document");
+            conn.setRequestProperty("Sec-Fetch-Mode", "navigate");
+            conn.setRequestProperty("Sec-Fetch-Site", "same-origin");
+            conn.setRequestProperty("Sec-Fetch-User", "?1");
+            conn.setRequestProperty("Cache-Control", "max-age=0");
 
             int responseCode = conn.getResponseCode();
 
