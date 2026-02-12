@@ -31,8 +31,8 @@ public class ClaudeEastMoneyApiUtil {
     private static final String DEFAULT_COOKIE = "qgqp_b_id=94d44a0f08221ddfb2428bdd8bfe7b11; websitepoptg_api_time=1770711215544; st_nvi=Ik9rC3AnoCdAMCgHrgKXxa96b; nid18=06026b47b71743c68fc1927735443bbe; nid18_create_time=1770711216117; gviem=BRkNT6EyXAqgHguxnVYawb5ce; gviem_create_time=1770711216117; st_pvi=04493722350580; st_sp=2026-02-10%2016%3A13%3A35; st_inirUrl=https%3A%2F%2Fwww.baidu.com%2Flink";
     private static final long COOKIE_REFRESH_INTERVAL = 10 * 60 * 1000; // 10分钟
     private static final int MAX_RETRY_TIMES = 3; // 最大重试次数
-    private static final long BASE_DELAY = 2000; // 基础延迟2秒
-    private static final long RANDOM_DELAY = 3000; // 随机延迟0-3秒
+    private static final long BASE_DELAY = 100; // 基础延迟2秒
+    private static final long RANDOM_DELAY = 200; // 随机延迟0-3秒
     
     // ==================== User-Agent 池 ====================
     

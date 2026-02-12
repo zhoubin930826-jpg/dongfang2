@@ -10,23 +10,7 @@
         </div>
       </template>
       
-      <!-- 股票代码输入 -->
-      <el-form :inline="true" class="stock-code-form" @submit.prevent="fetchStockData">
-        <el-form-item label="股票代码">
-          <el-input
-            v-model="stockCode"
-            placeholder="请输入股票代码，例如：600960"
-            maxlength="6"
-            show-word-limit
-            @keyup.enter="fetchStockData"
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="fetchStockData" :loading="loading">
-            确认
-          </el-button>
-        </el-form-item>
-      </el-form>
+
       
       <div v-loading="loading" element-loading-text="加载中..." class="loading-container">
         <el-alert
@@ -167,18 +151,6 @@ const dateRange = ref<string[]>([undefined, undefined]) // 正确初始化数组
 const handleBack = () => {
   router.push('/stock-pool')
 }
-
-// 监听路由参数变化，获取股票代码
-watch(
-  () => route.query.stockCode,
-  (newStockCode) => {
-    if (newStockCode) {
-      stockCode.value = newStockCode as string
-      fetchStockData()
-    }
-  },
-  { immediate: true }
-)
 
 // 图表引用
 const priceChartRef = ref<HTMLElement>()
@@ -332,9 +304,9 @@ const fetchStockKlineData = async (code: string): Promise<any[]> => {
 
 // 获取股票数据
 const fetchStockData = async () => {
+  // 确保股票代码不为空
   if (!stockCode.value) {
-    error.value = '请输入有效的股票代码'
-    return
+    stockCode.value = '600960' // 默认股票代码
   }
   
   loading.value = true
@@ -373,12 +345,8 @@ const fetchStockData = async () => {
       handleTimeFilter()
     }
     
-    // 初始化图表
-    if (klineData.value.length > 0) {
-      nextTick(() => {
-        initCharts()
-      })
-    }
+    // 图表初始化由watch监听stockInfo变化时处理，此处不再调用
+    // 这样可以确保DOM元素渲染完成后再初始化图表
   } catch (err: any) {
     error.value = err.message || '获取数据失败：网络错误'
     stockInfo.value = null
@@ -421,13 +389,14 @@ const stockDataList = computed(() => {
 const initCharts = () => {
   if (klineData.value.length === 0) return
   
-  initPriceChart()
-  initVolumeChart()
-  initAmountChart()
-  initAmplitudeChart()
-  initChangePercentChart()
-  initChangeAmountChart()
-  initTurnoverChart()
+  // 检查DOM元素是否存在，避免在DOM元素未渲染完成时尝试初始化图表
+  if (priceChartRef.value) initPriceChart()
+  if (volumeChartRef.value) initVolumeChart()
+  if (amountChartRef.value) initAmountChart()
+  if (amplitudeChartRef.value) initAmplitudeChart()
+  if (changePercentChartRef.value) initChangePercentChart()
+  if (changeAmountChartRef.value) initChangeAmountChart()
+  if (turnoverChartRef.value) initTurnoverChart()
 }
 
 // 初始化单个折线图的通用函数
@@ -646,6 +615,31 @@ const handleResize = () => {
   turnoverChart?.resize()
 }
 
+// 监听路由参数变化，获取股票代码
+watch(
+  () => route.query.stockCode,
+  (newStockCode) => {
+    if (newStockCode) {
+      stockCode.value = newStockCode as string
+      fetchStockData()
+    }
+  },
+  { immediate: true }
+)
+
+// 监听stockInfo变化，确保DOM元素渲染完成后再初始化图表
+watch(
+  [() => stockInfo.value, () => klineData.value.length],
+  ([newStockInfo, klineDataLength]) => {
+    if (newStockInfo && klineDataLength > 0) {
+      nextTick(() => {
+        initCharts()
+      })
+    }
+  },
+  { deep: true }
+)
+
 onMounted(() => {
   // 初始加载默认股票数据
   fetchStockData()
@@ -683,9 +677,7 @@ onBeforeUnmount(() => {
   align-items: center;
 }
 
-.stock-code-form {
-  margin-bottom: 20px;
-}
+
 
 .time-filter-form {
   margin-bottom: 20px;

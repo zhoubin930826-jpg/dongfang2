@@ -21,7 +21,7 @@
           <el-table :data="stockPoolData" style="width: 100%" border height="calc(100vh - 300px)" max-height="calc(100vh - 300px)" :row-key="row => row.f12">
             <el-table-column label="操作" width="100">
               <template #default="scope">
-                <el-button size="small" type="primary" @click="goToRealData(scope.row.f12)">
+                <el-button size="small" type="primary" @click="handleRealDataClick(scope.row)">
                   实盘数据
                 </el-button>
               </template>
@@ -182,22 +182,71 @@ const currentPage = ref(1)
 const pageSize = ref(50)
 const total = ref(0)
 
-// 跳转到实盘委托买卖数据页面
-const goToRealData = (stockCode: any) => {
-  console.log('跳转到实盘数据，股票代码:', stockCode)
+// 处理实盘数据按钮点击
+const handleRealDataClick = (row: any) => {
+  console.log('点击了实盘数据按钮，当前行数据:', row)
+  console.log('当前行股票代码:', row.f12)
+  if (row && row.f12) {
+    goToRealData(row.f12)
+  } else {
+    console.error('当前行数据为空或股票代码不存在')
+  }
+}
+
+// 测试跳转函数
+const testJump = () => {
+  alert('测试跳转按钮被点击')
+  console.log('测试跳转开始')
   try {
-    const code = String(stockCode || '')
-    if (!code) {
-      console.error('股票代码为空')
-      return
-    }
+    const code = '600960'
+    console.log('准备跳转到股票代码:', code)
     router.push({
       path: '/stock-real',
       query: { stockCode: code }
     })
+    console.log('测试跳转成功')
+  } catch (error) {
+    console.error('测试跳转失败:', error)
+  }
+}
+
+// 跳转到实盘委托买卖数据页面
+const goToRealData = (stockCode: any) => {
+  console.log('跳转到实盘数据，股票代码:', stockCode)
+  console.log('股票代码类型:', typeof stockCode)
+  console.log('router对象:', router)
+  try {
+    // 确保股票代码不为空
+    if (!stockCode) {
+      console.error('股票代码为空')
+      return
+    }
+    const code = String(stockCode)
+    console.log('转换后的股票代码:', code)
+    if (!code) {
+      console.error('转换后的股票代码为空')
+      return
+    }
+    console.log('准备跳转')
+    // 尝试使用router.push跳转
+    const jumpPath = `/stock-real?stockCode=${code}`
+    console.log('跳转路径:', jumpPath)
+    router.push(jumpPath)
     console.log('跳转成功')
   } catch (error) {
     console.error('跳转失败:', error)
+    // 尝试使用window.location.href跳转
+    try {
+      const code = String(stockCode || '')
+      if (code) {
+        const jumpPath = `/stock-real?stockCode=${code}`
+        console.log('尝试使用window.location.href跳转:', jumpPath)
+        window.location.href = jumpPath
+        console.log('window.location.href跳转成功')
+      }
+    } catch (e) {
+      console.error('window.location.href跳转失败:', e)
+    }
   }
 }
 
