@@ -1,0 +1,15 @@
+# Local runtime files
+*.log
+*.zip
+
+# Backend
+houduan/data/
+houduan/target/
+
+# Frontend
+qianduan/node_modules/
+qianduan/dist/
+
+# OS / editors
+.DS_Store
+.idea/
