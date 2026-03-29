@@ -124,25 +124,56 @@ public class EastMoneyStorageService {
     }
 
     public List<String> extractStockCodes(String rawJson) {
-        JsonNode diffNode = readPath(rawJson, "data", "diff");
-        if (diffNode == null) {
+        List<StockTarget> stockTargets = extractStockTargets(rawJson);
+        if (stockTargets.isEmpty()) {
             return Collections.emptyList();
         }
-        List<String> codes = new ArrayList<>();
-        if (diffNode.isArray()) {
-            for (JsonNode item : diffNode) {
-                addStockCode(codes, item);
-            }
-        } else if (diffNode.isObject()) {
-            diffNode.elements().forEachRemaining(item -> addStockCode(codes, item));
+        List<String> codes = new ArrayList<>(stockTargets.size());
+        for (StockTarget stockTarget : stockTargets) {
+            codes.add(stockTarget.stockCode());
         }
         return codes;
     }
 
-    private void addStockCode(List<String> codes, JsonNode item) {
+    public List<StockTarget> extractStockTargets(String rawJson) {
+        JsonNode diffNode = readPath(rawJson, "data", "diff");
+        if (diffNode == null) {
+            return Collections.emptyList();
+        }
+        List<StockTarget> stockTargets = new ArrayList<>();
+        if (diffNode.isArray()) {
+            diffNode.elements().forEachRemaining(item -> addStockTarget(stockTargets, item));
+        } else if (diffNode.isObject()) {
+            diffNode.elements().forEachRemaining(item -> addStockTarget(stockTargets, item));
+        }
+        return stockTargets;
+    }
+
+    public int extractTotalCount(String rawJson) {
+        JsonNode totalNode = readPath(rawJson, "data", "total");
+        if (totalNode == null) {
+            return 0;
+        }
+        return totalNode.asInt(0);
+    }
+
+    public int extractTotalPages(String rawJson, int pageSize) {
+        if (pageSize <= 0) {
+            return 0;
+        }
+        int totalCount = extractTotalCount(rawJson);
+        if (totalCount <= 0) {
+            return 0;
+        }
+        return (totalCount + pageSize - 1) / pageSize;
+    }
+
+    private void addStockTarget(List<StockTarget> stockTargets, JsonNode item) {
         JsonNode codeNode = item.get("f12");
         if (codeNode != null && !codeNode.asText().isBlank()) {
-            codes.add(codeNode.asText());
+            JsonNode marketNode = item.get("f13");
+            Integer market = marketNode != null && marketNode.canConvertToInt() ? marketNode.asInt() : null;
+            stockTargets.add(new StockTarget(codeNode.asText(), market));
         }
     }
 
@@ -170,5 +201,8 @@ public class EastMoneyStorageService {
         } catch (IOException e) {
             return null;
         }
+    }
+
+    public record StockTarget(String stockCode, Integer market) {
     }
 }

@@ -1,16 +1,58 @@
 <template>
-  <div class="industry-kline-container">
-    <el-card class="data-card">
+  <div class="page-shell industry-kline-container">
+    <section class="page-hero">
+      <div>
+        <p class="page-kicker">Industry Trend</p>
+        <h2 class="page-title">{{ industryInfo?.name || 'Industry K-Line' }}</h2>
+        <p class="page-subtitle">
+          Review price structure, turnover, and historical range for the selected industry board.
+        </p>
+      </div>
+
+      <div class="page-actions">
+        <div class="hero-badge">
+          <span class="hero-badge-label">Industry Code</span>
+          <strong>{{ industryInfo?.code || getIndustryCode() }}</strong>
+        </div>
+        <div class="hero-badge">
+          <span class="hero-badge-label">Date Range</span>
+          <strong>{{ activeDateLabel }}</strong>
+        </div>
+        <div class="hero-badge">
+          <span class="hero-badge-label">DB Fetched</span>
+          <strong>{{ fetchedAtLabel }}</strong>
+        </div>
+        <el-button type="primary" @click="fetchIndustryKlineData">Refresh</el-button>
+        <el-button type="default" @click="handleBack">Back</el-button>
+      </div>
+    </section>
+
+    <section v-if="!error && klineStats.length > 0" class="metric-grid">
+      <article
+        v-for="item in klineStats"
+        :key="item.label"
+        class="metric-card"
+      >
+        <p class="metric-label">{{ item.label }}</p>
+        <p :class="['metric-value', item.tone]">{{ item.value }}</p>
+        <p class="metric-note">{{ item.note }}</p>
+      </article>
+    </section>
+
+    <el-card class="view-card data-card">
       <template #header>
-        <div class="card-header">
-          <span>行业板块 K 线数据</span>
-          <el-button size="small" type="default" @click="handleBack">
-            返回
-          </el-button>
+        <div class="section-header">
+          <div>
+            <p class="section-kicker">K-Line Workspace</p>
+            <h3 class="section-title">Industry History</h3>
+          </div>
+          <p class="section-note">
+            The page now shows the database fetched time so you can judge how fresh the history is.
+          </p>
         </div>
       </template>
-      
-      <div v-loading="loading" element-loading-text="加载中..." class="loading-container">
+
+      <div v-loading="loading" element-loading-text="Loading industry history..." class="loading-container">
         <el-alert
           v-if="error"
           :title="error"
@@ -19,108 +61,125 @@
           :closable="false"
           class="error-alert"
         />
-        
+
         <template v-if="!error && industryInfo">
-          <!-- 时间筛选 -->
-          <el-form :inline="true" class="time-filter-form" @submit.prevent="handleTimeFilter">
-            <el-form-item label="开始时间">
-              <el-date-picker
-                v-model="dateRange[0]"
-                type="date"
-                placeholder="选择开始日期"
-                format="YYYY年MM月DD日"
-                value-format="YYYY-MM-DD"
-                @change="handleTimeFilter"
-              />
-            </el-form-item>
-            <el-form-item label="结束时间">
-              <el-date-picker
-                v-model="dateRange[1]"
-                type="date"
-                placeholder="选择结束日期"
-                format="YYYY年MM月DD日"
-                value-format="YYYY-MM-DD"
-                @change="handleTimeFilter"
-              />
-            </el-form-item>
-          </el-form>
-          
-          <!-- 基础信息 -->
-          <el-card class="info-card" :body-style="{ padding: '10px' }">
+          <div class="filter-bar market-subcard">
+            <el-form :inline="true" class="time-filter-form" @submit.prevent="handleTimeFilter">
+              <el-form-item label="Start">
+                <el-date-picker
+                  v-model="dateRange[0]"
+                  type="date"
+                  placeholder="Start date"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                  @change="handleTimeFilter"
+                />
+              </el-form-item>
+              <el-form-item label="End">
+                <el-date-picker
+                  v-model="dateRange[1]"
+                  type="date"
+                  placeholder="End date"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                  @change="handleTimeFilter"
+                />
+              </el-form-item>
+            </el-form>
+          </div>
+
+          <el-card class="info-card market-subcard" :body-style="{ padding: '12px 14px' }">
             <el-descriptions :column="6" border>
-              <el-descriptions-item label="代码">{{ industryInfo.code }}</el-descriptions-item>
-              <el-descriptions-item label="市场">{{ industryInfo.market }}</el-descriptions-item>
-              <el-descriptions-item label="名称">{{ industryInfo.name }}</el-descriptions-item>
-              <el-descriptions-item label="小数位">{{ industryInfo.decimal }}</el-descriptions-item>
-              <el-descriptions-item label="总数">{{ industryInfo.dktotal }}</el-descriptions-item>
-              <el-descriptions-item label="前值">{{ industryInfo.preKPrice }}</el-descriptions-item>
+              <el-descriptions-item label="Code">{{ industryInfo.code }}</el-descriptions-item>
+              <el-descriptions-item label="Market">{{ industryInfo.market }}</el-descriptions-item>
+              <el-descriptions-item label="Name">{{ industryInfo.name }}</el-descriptions-item>
+              <el-descriptions-item label="Decimal">{{ industryInfo.decimal }}</el-descriptions-item>
+              <el-descriptions-item label="Total">{{ industryInfo.dktotal }}</el-descriptions-item>
+              <el-descriptions-item label="Pre K Price">{{ formatNumber(industryInfo.preKPrice) }}</el-descriptions-item>
             </el-descriptions>
           </el-card>
-          
-          <!-- 图表区域 -->
-          <div class="charts-container" style="overflow-y: auto; max-height: calc(100vh - 300px);">
-            <el-row :gutter="20">
-              <!-- 价格类图表 -->
+
+          <div class="charts-container">
+            <el-row :gutter="18">
               <el-col :span="24">
-                <el-card class="chart-card">
+                <el-card class="chart-card view-card">
                   <template #header>
-                    <span>价格走势</span>
+                    <div class="chart-card-header">
+                      <span>Price Trend</span>
+                      <small>Open / Close / High / Low</small>
+                    </div>
                   </template>
                   <div ref="priceChartRef" class="chart"></div>
                 </el-card>
               </el-col>
-              
-              <!-- 成交量与成交额 -->
-              <el-col :span="24">
-                <el-card class="chart-card">
+
+              <el-col :xs="24" :xl="12">
+                <el-card class="chart-card view-card">
                   <template #header>
-                    <span>成交量</span>
+                    <div class="chart-card-header">
+                      <span>Volume</span>
+                      <small>Trading Volume</small>
+                    </div>
                   </template>
                   <div ref="volumeChartRef" class="chart"></div>
                 </el-card>
               </el-col>
-              
-              <el-col :span="24">
-                <el-card class="chart-card">
+
+              <el-col :xs="24" :xl="12">
+                <el-card class="chart-card view-card">
                   <template #header>
-                    <span>成交额</span>
+                    <div class="chart-card-header">
+                      <span>Amount</span>
+                      <small>Trading Amount</small>
+                    </div>
                   </template>
                   <div ref="amountChartRef" class="chart"></div>
                 </el-card>
               </el-col>
-              
-              <!-- 技术指标 -->
-              <el-col :span="24">
-                <el-card class="chart-card">
+
+              <el-col :xs="24" :xl="12">
+                <el-card class="chart-card view-card">
                   <template #header>
-                    <span>振幅</span>
+                    <div class="chart-card-header">
+                      <span>Amplitude</span>
+                      <small>Volatility</small>
+                    </div>
                   </template>
                   <div ref="amplitudeChartRef" class="chart"></div>
                 </el-card>
               </el-col>
-              
-              <el-col :span="24">
-                <el-card class="chart-card">
+
+              <el-col :xs="24" :xl="12">
+                <el-card class="chart-card view-card">
                   <template #header>
-                    <span>涨跌幅</span>
+                    <div class="chart-card-header">
+                      <span>Change %</span>
+                      <small>Percent Change</small>
+                    </div>
                   </template>
                   <div ref="changePercentChartRef" class="chart"></div>
                 </el-card>
               </el-col>
-              
-              <el-col :span="24">
-                <el-card class="chart-card">
+
+              <el-col :xs="24" :xl="12">
+                <el-card class="chart-card view-card">
                   <template #header>
-                    <span>涨跌额</span>
+                    <div class="chart-card-header">
+                      <span>Change Value</span>
+                      <small>Point Change</small>
+                    </div>
                   </template>
                   <div ref="changeAmountChartRef" class="chart"></div>
                 </el-card>
               </el-col>
-              
-              <el-col :span="24">
-                <el-card class="chart-card">
+
+              <el-col :xs="24" :xl="12">
+                <el-card class="chart-card view-card">
                   <template #header>
-                    <span>换手率</span>
+                    <div class="chart-card-header">
+                      <span>Turnover</span>
+                      <small>Turnover Rate</small>
+                    </div>
                   </template>
                   <div ref="turnoverChartRef" class="chart"></div>
                 </el-card>
@@ -128,29 +187,57 @@
             </el-row>
           </div>
         </template>
-        
-        <el-empty v-if="!loading && !error && !industryInfo" description="暂无数据" />
+
+        <el-empty
+          v-if="!loading && !error && !industryInfo"
+          description="No industry history available"
+        />
       </div>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import * as echarts from 'echarts'
+import { formatFetchedAt, getFetchedAt, parseApiPayload } from '../utils/responseMeta'
+
+type KlinePoint = {
+  time: string
+  open: number
+  close: number
+  high: number
+  low: number
+  volume: number
+  amount: number
+  amplitude: number
+  changePercent: number
+  changeAmount: number
+  turnover: number
+}
+
+type IndustryInfo = {
+  code: string
+  market: number | string
+  name: string
+  decimal: number
+  dktotal: number
+  preKPrice: number
+}
 
 const router = useRouter()
 const route = useRoute()
+
 const loading = ref(false)
 const error = ref('')
-const industryInfo = ref<any>(null)
-const klineData = ref<any[]>([])
-const originalKlineData = ref<any[]>([]) // 存储原始数据
+const industryInfo = ref<IndustryInfo | null>(null)
+const allKlineData = ref<KlinePoint[]>([])
+const klineData = ref<KlinePoint[]>([])
 const dateRange = ref<[string | undefined, string | undefined]>([undefined, undefined])
+const fetchedAtLabel = ref('--')
 
-// 图表引用
 const priceChartRef = ref<HTMLElement>()
 const volumeChartRef = ref<HTMLElement>()
 const amountChartRef = ref<HTMLElement>()
@@ -159,515 +246,379 @@ const changePercentChartRef = ref<HTMLElement>()
 const changeAmountChartRef = ref<HTMLElement>()
 const turnoverChartRef = ref<HTMLElement>()
 
-let priceChart: echarts.ECharts | null = null
-let volumeChart: echarts.ECharts | null = null
-let amountChart: echarts.ECharts | null = null
-let amplitudeChart: echarts.ECharts | null = null
-let changePercentChart: echarts.ECharts | null = null
-let changeAmountChart: echarts.ECharts | null = null
-let turnoverChart: echarts.ECharts | null = null
+const getIndustryCode = (): string => {
+  const value = route.query.industryCode
+  return typeof value === 'string' && value.trim() ? value.trim() : 'BK0428'
+}
 
-// 处理返回按钮
 const handleBack = () => {
   router.push('/industry-base')
 }
 
-// 处理时间筛选
-const handleTimeFilter = () => {
+const formatNumber = (value: number | undefined | null): string => {
+  if (value === undefined || value === null || Number.isNaN(value)) return '--'
+  return Number(value).toFixed(2)
+}
+
+const formatPercent = (value: number | undefined | null): string => {
+  if (value === undefined || value === null || Number.isNaN(value)) return '--'
+  return `${Number(value).toFixed(2)}%`
+}
+
+const formatCompact = (value: number | undefined | null): string => {
+  if (value === undefined || value === null || Number.isNaN(value)) return '--'
+  const num = Number(value)
+  if (Math.abs(num) >= 100000000) return `${(num / 100000000).toFixed(2)}B`
+  if (Math.abs(num) >= 10000) return `${(num / 10000).toFixed(2)}W`
+  return num.toFixed(2)
+}
+
+const latestKline = computed(() => {
+  return klineData.value.length > 0 ? klineData.value[klineData.value.length - 1] : null
+})
+
+const activeDateLabel = computed(() => {
   const [startDate, endDate] = dateRange.value
-  
-  // 过滤数据
-  if (startDate || endDate) {
-    klineData.value = originalKlineData.value.filter(item => {
-      const itemDate = item.time
-      let matchStart = true
-      let matchEnd = true
-      
-      if (startDate) {
-        matchStart = itemDate >= startDate
+  if (startDate && endDate) return `${startDate} -> ${endDate}`
+  if (startDate) return `${startDate} -> latest`
+  if (endDate) return `up to ${endDate}`
+  return 'full history'
+})
+
+const klineStats = computed(() => {
+  const latest = latestKline.value
+  if (!latest || klineData.value.length === 0) return []
+
+  const highs = klineData.value.map((item) => item.high)
+  const lows = klineData.value.map((item) => item.low)
+  return [
+    {
+      label: 'Last Close',
+      value: formatNumber(latest.close),
+      note: latest.time,
+      tone: latest.changePercent >= 0 ? 'rise' : 'fall'
+    },
+    {
+      label: 'Change %',
+      value: formatPercent(latest.changePercent),
+      note: `Change ${formatNumber(latest.changeAmount)}`,
+      tone: latest.changePercent >= 0 ? 'rise' : 'fall'
+    },
+    {
+      label: 'Range High',
+      value: formatNumber(Math.max(...highs)),
+      note: 'Highest point in filtered window',
+      tone: ''
+    },
+    {
+      label: 'Range Low',
+      value: formatNumber(Math.min(...lows)),
+      note: 'Lowest point in filtered window',
+      tone: ''
+    },
+    {
+      label: 'Latest Amount',
+      value: formatCompact(latest.amount),
+      note: `Volume ${formatCompact(latest.volume)}`,
+      tone: ''
+    },
+    {
+      label: 'Turnover',
+      value: formatPercent(latest.turnover),
+      note: `Amplitude ${formatPercent(latest.amplitude)}`,
+      tone: ''
+    }
+  ]
+})
+
+const parseKlineData = (rawKlines: string[]): KlinePoint[] => {
+  return rawKlines
+    .map((line) => {
+      const [
+        time = '',
+        open = '0',
+        close = '0',
+        high = '0',
+        low = '0',
+        volume = '0',
+        amount = '0',
+        amplitude = '0',
+        changePercent = '0',
+        changeAmount = '0',
+        turnover = '0'
+      ] = line.split(',')
+
+      return {
+        time,
+        open: Number.parseFloat(open),
+        close: Number.parseFloat(close),
+        high: Number.parseFloat(high),
+        low: Number.parseFloat(low),
+        volume: Number.parseFloat(volume),
+        amount: Number.parseFloat(amount),
+        amplitude: Number.parseFloat(amplitude),
+        changePercent: Number.parseFloat(changePercent),
+        changeAmount: Number.parseFloat(changeAmount),
+        turnover: Number.parseFloat(turnover)
       }
-      if (endDate) {
-        matchEnd = itemDate <= endDate
-      }
-      
-      return matchStart && matchEnd
     })
-  } else {
-    // 如果都没选，使用原始数据
-    klineData.value = [...originalKlineData.value]
-  }
-  
-  // 重新初始化图表
-  nextTick(() => {
-    initCharts()
+    .filter((item) => item.time)
+}
+
+const ensureChart = (target?: HTMLElement | null): echarts.ECharts | null => {
+  if (!target) return null
+  return echarts.getInstanceByDom(target) || echarts.init(target)
+}
+
+const getAxisData = () => klineData.value.map((item) => item.time)
+
+const renderPriceChart = () => {
+  const chart = ensureChart(priceChartRef.value)
+  if (!chart) return
+
+  chart.setOption({
+    animation: false,
+    tooltip: { trigger: 'axis' },
+    legend: { top: 0, textStyle: { color: '#475569' } },
+    grid: { left: '4%', right: '3%', top: 40, bottom: 50, containLabel: true },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: getAxisData(),
+      axisLabel: { rotate: 45, color: '#64748b' }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: '#64748b' },
+      splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.18)' } }
+    },
+    series: [
+      { name: 'Open', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.open), lineStyle: { color: '#2563eb', width: 2 } },
+      { name: 'Close', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.close), lineStyle: { color: '#dc2626', width: 2 } },
+      { name: 'High', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.high), lineStyle: { color: '#16a34a', width: 2 } },
+      { name: 'Low', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.low), lineStyle: { color: '#f59e0b', width: 2 } }
+    ]
   })
 }
 
-// 获取行业代码
-const getIndustryCode = (): string => {
-  return route.query.industryCode as string || 'BK0486' // 默认文化传媒
+const renderSingleSeriesChart = (
+  target: HTMLElement | undefined,
+  name: string,
+  values: number[],
+  color: string
+) => {
+  const chart = ensureChart(target)
+  if (!chart) return
+
+  chart.setOption({
+    animation: false,
+    tooltip: { trigger: 'axis' },
+    grid: { left: '4%', right: '3%', top: 18, bottom: 42, containLabel: true },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: getAxisData(),
+      axisLabel: { rotate: 45, color: '#64748b' }
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: '#64748b' },
+      splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.18)' } }
+    },
+    series: [
+      {
+        name,
+        type: 'line',
+        smooth: true,
+        showSymbol: false,
+        data: values,
+        lineStyle: { color, width: 2 },
+        areaStyle: { color: `${color}22` }
+      }
+    ]
+  })
 }
 
-// 解析K线数据
-const parseKlineData = (klines: string[]): any[] => {
-  return klines.map(line => {
-    const [
-      f51 = '',
-      f52 = '0',
-      f53 = '0',
-      f54 = '0',
-      f55 = '0',
-      f56 = '0',
-      f57 = '0',
-      f58 = '0',
-      f59 = '0',
-      f60 = '0',
-      f61 = '0'
-    ] = line.split(',')
-    return {
-      time: f51,
-      open: parseFloat(f52),
-      close: parseFloat(f53),
-      high: parseFloat(f54),
-      low: parseFloat(f55),
-      volume: parseFloat(f56),
-      amount: parseFloat(f57),
-      amplitude: parseFloat(f58),
-      changePercent: parseFloat(f59),
-      changeAmount: parseFloat(f60),
-      turnover: parseFloat(f61)
+const renderAllCharts = () => {
+  renderPriceChart()
+  renderSingleSeriesChart(volumeChartRef.value, 'Volume', klineData.value.map((item) => item.volume), '#64748b')
+  renderSingleSeriesChart(amountChartRef.value, 'Amount', klineData.value.map((item) => item.amount), '#2563eb')
+  renderSingleSeriesChart(amplitudeChartRef.value, 'Amplitude', klineData.value.map((item) => item.amplitude), '#dc2626')
+  renderSingleSeriesChart(changePercentChartRef.value, 'Change %', klineData.value.map((item) => item.changePercent), '#16a34a')
+  renderSingleSeriesChart(changeAmountChartRef.value, 'Change Value', klineData.value.map((item) => item.changeAmount), '#f59e0b')
+  renderSingleSeriesChart(turnoverChartRef.value, 'Turnover', klineData.value.map((item) => item.turnover), '#7c3aed')
+}
+
+const resizeCharts = () => {
+  [
+    priceChartRef.value,
+    volumeChartRef.value,
+    amountChartRef.value,
+    amplitudeChartRef.value,
+    changePercentChartRef.value,
+    changeAmountChartRef.value,
+    turnoverChartRef.value
+  ].forEach((target) => {
+    if (target) {
+      echarts.getInstanceByDom(target)?.resize()
     }
   })
 }
 
-// 获取行业板块K线数据
+const disposeCharts = () => {
+  [
+    priceChartRef.value,
+    volumeChartRef.value,
+    amountChartRef.value,
+    amplitudeChartRef.value,
+    changePercentChartRef.value,
+    changeAmountChartRef.value,
+    turnoverChartRef.value
+  ].forEach((target) => {
+    if (target) {
+      echarts.getInstanceByDom(target)?.dispose()
+    }
+  })
+}
+
+const applyDateFilter = async () => {
+  const [startDate, endDate] = dateRange.value
+  klineData.value = allKlineData.value.filter((item) => {
+    if (startDate && item.time < startDate) return false
+    if (endDate && item.time > endDate) return false
+    return true
+  })
+
+  await nextTick()
+  renderAllCharts()
+}
+
+const handleTimeFilter = () => {
+  void applyDateFilter()
+}
+
 const fetchIndustryKlineData = async () => {
   const industryCode = getIndustryCode()
   loading.value = true
   error.value = ''
-  
+
   try {
     const response = await axios.get(`http://localhost:8080/api/industry/kline?industryCode=${industryCode}`)
-    console.log('API返回原始数据:', response.data)
-    
-    const parsedData = response.data
-    
-    console.log('解析后的数据:', parsedData)
-    
-    // 检查请求状态
-    if (parsedData && parsedData.rc === 0 && parsedData.data) {
-      const data = parsedData.data
-      // 解析基础信息
-      industryInfo.value = {
-        code: data.code,
-        market: data.market,
-        name: data.name,
-        decimal: data.decimal,
-        dktotal: data.dktotal,
-        preKPrice: data.preKPrice
-      }
-      // 解析K线数据
-      if (data.klines && Array.isArray(data.klines)) {
-        console.log('K线数据:', data.klines)
-        klineData.value = parseKlineData(data.klines)
-        console.log('解析后的K线数据:', klineData.value)
-        // 检查解析后的数据结构
-        if (klineData.value.length > 0) {
-          console.log('解析后的数据示例:', klineData.value[0])
-          console.log('数据字段检查 - time:', klineData.value[0].time)
-          console.log('数据字段检查 - open:', klineData.value[0].open)
-          console.log('数据字段检查 - close:', klineData.value[0].close)
-          console.log('数据字段检查 - high:', klineData.value[0].high)
-          console.log('数据字段检查 - low:', klineData.value[0].low)
-          console.log('数据字段检查 - volume:', klineData.value[0].volume)
-          console.log('数据字段检查 - amount:', klineData.value[0].amount)
-          console.log('数据字段检查 - amplitude:', klineData.value[0].amplitude)
-          console.log('数据字段检查 - changePercent:', klineData.value[0].changePercent)
-          console.log('数据字段检查 - changeAmount:', klineData.value[0].changeAmount)
-          console.log('数据字段检查 - turnover:', klineData.value[0].turnover)
-        }
-        // 存储原始数据
-        originalKlineData.value = [...klineData.value]
-        // 设置默认时间范围（近2个月）
-        if (originalKlineData.value.length > 0) {
-          // 找出最大时间
-          const maxTimeStr = originalKlineData.value.reduce((max, item) => {
-            return item.time > max ? item.time : max
-          }, originalKlineData.value[0].time)
-          // 计算两个月前的时间
-          const endDate = new Date(maxTimeStr)
-          const startDate = new Date(endDate)
-          startDate.setMonth(startDate.getMonth() - 2)
-          // 格式化日期为 YYYY-MM-DD
-          const formatDate = (date: Date): string => {
-            const year = date.getFullYear()
-            const month = String(date.getMonth() + 1).padStart(2, '0')
-            const day = String(date.getDate()).padStart(2, '0')
-            return `${year}-${month}-${day}`
-          }
-          dateRange.value = [formatDate(startDate), formatDate(endDate)]
-          // 应用时间筛选
-          handleTimeFilter()
-        }
-        // 初始化图表
-        console.log('准备初始化图表...')
-        // 使用 nextTick 确保 DOM 更新后再初始化图表
-        nextTick(() => {
-          console.log('DOM 更新完成，开始初始化图表')
-          initCharts()
-        })
-      } else {
-        error.value = '获取数据失败：K线数据格式不正确'
-        console.error('K线数据格式不正确:', data.klines)
-      }
-    } else {
-      error.value = `获取数据失败：${parsedData?.rc || '未知错误'}`
-      console.error('数据格式不正确:', parsedData)
+    const parsedData = parseApiPayload(response.data)
+    fetchedAtLabel.value = formatFetchedAt(getFetchedAt(parsedData))
+
+    if (!parsedData || parsedData.rc !== 0 || !parsedData.data) {
+      throw new Error(parsedData?.message || 'Failed to load industry history')
     }
-  } catch (err) {
-    console.error('获取行业板块K线数据失败:', err)
-    error.value = '获取数据失败：网络错误'
+
+    const payload = parsedData.data
+    industryInfo.value = {
+      code: payload.code,
+      market: payload.market,
+      name: payload.name,
+      decimal: payload.decimal,
+      dktotal: payload.dktotal,
+      preKPrice: payload.preKPrice
+    }
+
+    allKlineData.value = parseKlineData(payload.klines || [])
+    await applyDateFilter()
+  } catch (err: any) {
+    error.value = err?.message || 'Failed to load industry history'
+    industryInfo.value = null
+    allKlineData.value = []
+    klineData.value = []
+    fetchedAtLabel.value = '--'
+    disposeCharts()
   } finally {
     loading.value = false
   }
 }
 
-// 初始化图表
-const initCharts = () => {
-  console.log('开始初始化图表，K线数据长度:', klineData.value.length)
-  if (klineData.value.length === 0) {
-    console.log('K线数据为空，跳过图表初始化')
-    return
-  }
-  
-  // 初始化各个图表
-  console.log('开始初始化各个图表...')
-  initPriceChart()
-  initVolumeChart()
-  initAmountChart()
-  initAmplitudeChart()
-  initChangePercentChart()
-  initChangeAmountChart()
-  initTurnoverChart()
-  console.log('所有图表初始化完成')
-}
-
-// 初始化单个折线图的通用函数
-const initSingleChart = (chartRef: any, title: string, data: number[], color: string) => {
-  console.log(`初始化${title}图表，数据长度:`, data.length)
-  console.log(`${title}数据:`, data)
-  
-  if (!chartRef.value) {
-    console.error(`${title}图表DOM元素不存在:`, chartRef)
-    return null
-  }
-  
-  console.log(`${title}图表DOM元素:`, chartRef.value)
-  
-  try {
-    const chart = echarts.init(chartRef.value)
-    console.log(`${title}图表实例创建成功:`, chart)
-    
-    const times = klineData.value.map(item => item.time)
-    console.log(`${title}图表时间数据:`, times)
-    
-    const option = {
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: {
-          type: 'cross'
-        }
-      },
-      legend: {
-        data: [title],
-        top: 0
-      },
-      grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        boundaryGap: false,
-        data: times,
-        axisLabel: {
-          rotate: 45
-        }
-      },
-      yAxis: {
-        type: 'value'
-      },
-      series: [
-        {
-          name: title,
-          type: 'line',
-          data: data,
-          smooth: true,
-          lineStyle: {
-            width: 2,
-            color: color
-          }
-        }
-      ]
-    }
-    
-    console.log(`${title}图表配置:`, option)
-    chart.setOption(option)
-    console.log(`${title}图表配置设置成功`)
-    return chart
-  } catch (error) {
-    console.error(`${title}图表初始化失败:`, error)
-    return null
-  }
-}
-
-// 初始化价格走势图表（包含开盘价、收盘价、最高价、最低价）
-const initPriceChart = () => {
-  console.log('开始初始化价格走势图表')
-  if (!priceChartRef.value) {
-    console.error('价格走势图表DOM元素不存在')
-    return
-  }
-  
-  try {
-    const chart = echarts.init(priceChartRef.value)
-    console.log('价格走势图表实例创建成功:', chart)
-    
-    const times = klineData.value.map(item => item.time)
-    const openPrices = klineData.value.map(item => item.open)
-    const closePrices = klineData.value.map(item => item.close)
-    const highPrices = klineData.value.map(item => item.high)
-    const lowPrices = klineData.value.map(item => item.low)
-    
-    console.log('价格数据准备完成')
-    console.log('开盘价数据:', openPrices)
-    console.log('收盘价数据:', closePrices)
-    console.log('最高价数据:', highPrices)
-    console.log('最低价数据:', lowPrices)
-    
-    const option = {
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: {
-          type: 'cross'
-        }
-      },
-      legend: {
-        data: ['开盘价', '收盘价', '最高价', '最低价'],
-        top: 0
-      },
-      grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        top: '15%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        boundaryGap: false,
-        data: times,
-        axisLabel: {
-          rotate: 45
-        }
-      },
-      yAxis: {
-        type: 'value'
-      },
-      series: [
-        {
-          name: '开盘价',
-          type: 'line',
-          data: openPrices,
-          smooth: true,
-          lineStyle: {
-            width: 2,
-            color: '#409eff'
-          }
-        },
-        {
-          name: '收盘价',
-          type: 'line',
-          data: closePrices,
-          smooth: true,
-          lineStyle: {
-            width: 2,
-            color: '#f56c6c'
-          }
-        },
-        {
-          name: '最高价',
-          type: 'line',
-          data: highPrices,
-          smooth: true,
-          lineStyle: {
-            width: 2,
-            color: '#67c23a'
-          }
-        },
-        {
-          name: '最低价',
-          type: 'line',
-          data: lowPrices,
-          smooth: true,
-          lineStyle: {
-            width: 2,
-            color: '#e6a23c'
-          }
-        }
-      ]
-    }
-    
-    console.log('价格走势图表配置:', option)
-    chart.setOption(option)
-    console.log('价格走势图表配置设置成功')
-    
-    // 立即调用resize，确保图表适应容器大小
-    chart.resize()
-    
-    priceChart = chart
-  } catch (error) {
-    console.error('价格走势图表初始化失败:', error)
-  }
-}
-
-// 初始化成交量图表
-const initVolumeChart = () => {
-  console.log('开始初始化成交量图表')
-  const volumes = klineData.value.map(item => item.volume)
-  console.log('成交量数据:', volumes)
-  volumeChart = initSingleChart(volumeChartRef, '成交量', volumes, '#909399')
-  console.log('成交量图表初始化完成:', volumeChart)
-}
-
-// 初始化成交额图表
-const initAmountChart = () => {
-  console.log('开始初始化成交额图表')
-  const amounts = klineData.value.map(item => item.amount)
-  console.log('成交额数据:', amounts)
-  amountChart = initSingleChart(amountChartRef, '成交额', amounts, '#409eff')
-  console.log('成交额图表初始化完成:', amountChart)
-}
-
-// 初始化振幅图表
-const initAmplitudeChart = () => {
-  console.log('开始初始化振幅图表')
-  const amplitudes = klineData.value.map(item => item.amplitude)
-  console.log('振幅数据:', amplitudes)
-  amplitudeChart = initSingleChart(amplitudeChartRef, '振幅', amplitudes, '#f56c6c')
-  console.log('振幅图表初始化完成:', amplitudeChart)
-}
-
-// 初始化涨跌幅图表
-const initChangePercentChart = () => {
-  console.log('开始初始化涨跌幅图表')
-  const changePercents = klineData.value.map(item => item.changePercent)
-  console.log('涨跌幅数据:', changePercents)
-  changePercentChart = initSingleChart(changePercentChartRef, '涨跌幅', changePercents, '#67c23a')
-  console.log('涨跌幅图表初始化完成:', changePercentChart)
-}
-
-// 初始化涨跌额图表
-const initChangeAmountChart = () => {
-  console.log('开始初始化涨跌额图表')
-  const changeAmounts = klineData.value.map(item => item.changeAmount)
-  console.log('涨跌额数据:', changeAmounts)
-  changeAmountChart = initSingleChart(changeAmountChartRef, '涨跌额', changeAmounts, '#e6a23c')
-  console.log('涨跌额图表初始化完成:', changeAmountChart)
-}
-
-// 初始化换手率图表
-const initTurnoverChart = () => {
-  console.log('开始初始化换手率图表')
-  const turnovers = klineData.value.map(item => item.turnover)
-  console.log('换手率数据:', turnovers)
-  turnoverChart = initSingleChart(turnoverChartRef, '换手率', turnovers, '#909399')
-  console.log('换手率图表初始化完成:', turnoverChart)
-}
-
-// 监听窗口大小变化，调整图表大小
-const handleResize = () => {
-  priceChart?.resize()
-  volumeChart?.resize()
-  amountChart?.resize()
-  amplitudeChart?.resize()
-  changePercentChart?.resize()
-  changeAmountChart?.resize()
-  turnoverChart?.resize()
-}
-
-// 监听路由变化，重新获取数据
 watch(
   () => route.query.industryCode,
   () => {
-    fetchIndustryKlineData()
+    void fetchIndustryKlineData()
   }
 )
 
 onMounted(() => {
-  fetchIndustryKlineData()
-  window.addEventListener('resize', handleResize)
+  void fetchIndustryKlineData()
+  window.addEventListener('resize', resizeCharts)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', handleResize)
-  priceChart?.dispose()
-  volumeChart?.dispose()
-  amountChart?.dispose()
-  amplitudeChart?.dispose()
-  changePercentChart?.dispose()
-  changeAmountChart?.dispose()
-  turnoverChart?.dispose()
+  window.removeEventListener('resize', resizeCharts)
+  disposeCharts()
 })
 </script>
 
 <style scoped>
 .industry-kline-container {
-  padding: 20px;
-  height: 100%;
-  box-sizing: border-box;
-  overflow: auto;
+  min-height: 100%;
 }
 
 .data-card {
-  height: 100%;
-  overflow: hidden;
-}
-
-.card-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .loading-container {
   min-height: 600px;
+  overflow: auto;
 }
 
 .error-alert {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
-.time-filter-form {
-  margin-bottom: 20px;
+.filter-bar {
+  margin-bottom: 16px;
+  padding: 16px 18px 0;
 }
 
 .info-card {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .charts-container {
-  margin-top: 20px;
+  margin-top: 6px;
 }
 
 .chart-card {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
+}
+
+.chart-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.chart-card-header small {
+  color: var(--text-secondary);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .chart {
   width: 100%;
-  height: 400px;
+  height: 360px;
+}
+
+@media (max-width: 768px) {
+  .filter-bar {
+    padding: 14px 14px 0;
+  }
+
+  .chart {
+    height: 320px;
+  }
 }
 </style>

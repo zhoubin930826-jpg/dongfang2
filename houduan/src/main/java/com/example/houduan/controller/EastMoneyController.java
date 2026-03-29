@@ -27,13 +27,13 @@ public class EastMoneyController {
     }
 
     @GetMapping("/api/stock/real")
-    public String getStockRealData(@RequestParam String stockCode) {
-        return eastMoneyQueryService.getStockReal(stockCode);
+    public String getStockRealData(@RequestParam String stockCode, @RequestParam(required = false) Integer market) {
+        return eastMoneyQueryService.getStockReal(stockCode, market);
     }
 
     @GetMapping("/api/stock/kline")
-    public String getStockKlineData(@RequestParam String stockCode) {
-        return eastMoneyQueryService.getStockKline(stockCode);
+    public String getStockKlineData(@RequestParam String stockCode, @RequestParam(required = false) Integer market) {
+        return eastMoneyQueryService.getStockKline(stockCode, market);
     }
 
     @GetMapping("/api/stock/pool")

@@ -1,12 +1,56 @@
 <template>
-  <div class="stock-pool-container">
-    <el-card class="data-card">
+  <div class="page-shell stock-pool-container">
+    <section class="page-hero">
+      <div>
+        <p class="page-kicker">Stock Universe</p>
+        <h2 class="page-title">全市场股票池</h2>
+        <p class="page-subtitle">
+          用一张交易工作表把股票池铺开，适合先筛行业、看概念分布，再跳到单只股票的盘口和 K 线做深看。
+        </p>
+      </div>
+
+      <div class="page-actions">
+        <div class="hero-badge">
+          <span class="hero-badge-label">股票总量</span>
+          <strong>{{ total || 0 }} 只</strong>
+        </div>
+        <div class="hero-badge">
+          <span class="hero-badge-label">当前页</span>
+          <strong>{{ currentPage }} / {{ totalPages }}</strong>
+        </div>
+        <div class="hero-badge">
+          <span class="hero-badge-label">最近刷新</span>
+          <strong>{{ lastUpdated }}</strong>
+        </div>
+        <el-button type="primary" @click="fetchStockPoolData(currentPage)">刷新数据</el-button>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      <article
+        v-for="item in poolStats"
+        :key="item.label"
+        class="metric-card"
+      >
+        <p class="metric-label">{{ item.label }}</p>
+        <p :class="['metric-value', item.tone, item.compact ? 'metric-value--compact' : '']">
+          {{ item.value }}
+        </p>
+        <p class="metric-note">{{ item.note }}</p>
+      </article>
+    </section>
+
+    <el-card class="view-card data-card">
       <template #header>
-        <div class="card-header">
-          <span>读取股票池</span>
+        <div class="section-header">
+          <div>
+            <p class="section-kicker">Market Tape</p>
+            <h3 class="section-title">股票池明细</h3>
+          </div>
+          <p class="section-note">点击“实盘数据”可继续查看盘口和长周期 K 线。</p>
         </div>
       </template>
-      
+
       <div v-loading="loading" element-loading-text="加载中..." class="loading-container">
         <el-alert
           v-if="error"
@@ -16,145 +60,150 @@
           :closable="false"
           class="error-alert"
         />
-        
+
         <div v-if="!error && stockPoolData.length > 0" class="table-container">
-          <el-table :data="stockPoolData" style="width: 100%" border height="calc(100vh - 300px)" max-height="calc(100vh - 300px)" :row-key="getRowKey">
-            <el-table-column label="操作" width="100">
+          <el-table
+            :data="stockPoolData"
+            border
+            class="market-table"
+            height="calc(100vh - 370px)"
+            max-height="calc(100vh - 370px)"
+            :row-key="getRowKey"
+          >
+            <el-table-column label="操作" width="110" fixed="left">
               <template #default="scope">
                 <el-button size="small" type="primary" @click="handleRealDataClick(scope.row)">
                   实盘数据
                 </el-button>
               </template>
             </el-table-column>
-            <el-table-column prop="f12" label="股票代码" width="100" />
-            <el-table-column prop="f14" label="名称" width="120" />
-            <el-table-column prop="f2" label="最新价" width="100">
+            <el-table-column prop="f12" label="股票代码" width="110" />
+            <el-table-column prop="f14" label="名称" width="130" />
+            <el-table-column prop="f2" label="最新价" width="110">
               <template #default="scope">
                 {{ formatNumber(Number(scope.row.f2) / 100) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f3" label="涨跌幅" width="100">
+            <el-table-column prop="f3" label="涨跌幅" width="110">
               <template #default="scope">
                 <span :class="scope.row.f3 >= 0 ? 'rise' : 'fall'">
                   {{ formatPercent(scope.row.f3) }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="f4" label="涨跌额" width="100">
+            <el-table-column prop="f4" label="涨跌额" width="110">
               <template #default="scope">
                 <span :class="Number(scope.row.f4) >= 0 ? 'rise' : 'fall'">
                   {{ formatNumber(Number(scope.row.f4) / 100) }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="f5" label="成交量(手)" width="120">
+            <el-table-column prop="f5" label="成交量(手)" width="130">
               <template #default="scope">
                 {{ formatVolume(scope.row.f5) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f6" label="成交额" width="120">
+            <el-table-column prop="f6" label="成交额" width="130">
               <template #default="scope">
                 {{ formatAmount(scope.row.f6) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f7" label="振幅" width="100">
+            <el-table-column prop="f7" label="振幅" width="110">
               <template #default="scope">
                 {{ formatPercent(scope.row.f7) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f8" label="换手率" width="100">
+            <el-table-column prop="f8" label="换手率" width="110">
               <template #default="scope">
                 {{ formatPercent(scope.row.f8) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f9" label="市盈率(动)" width="120">
+            <el-table-column prop="f9" label="市盈率(动)" width="130">
               <template #default="scope">
                 {{ formatNumber(scope.row.f9) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f10" label="量比" width="100">
+            <el-table-column prop="f10" label="量比" width="110">
               <template #default="scope">
                 {{ formatNumber(scope.row.f10) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f15" label="最高" width="100">
+            <el-table-column prop="f15" label="最高" width="110">
               <template #default="scope">
                 {{ formatNumber(Number(scope.row.f15) / 100) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f16" label="最低" width="100">
+            <el-table-column prop="f16" label="最低" width="110">
               <template #default="scope">
                 {{ formatNumber(Number(scope.row.f16) / 100) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f17" label="今开" width="100">
+            <el-table-column prop="f17" label="今开" width="110">
               <template #default="scope">
                 {{ formatNumber(Number(scope.row.f17) / 100) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f18" label="昨收" width="100">
+            <el-table-column prop="f18" label="昨收" width="110">
               <template #default="scope">
                 {{ formatNumber(Number(scope.row.f18) / 100) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f20" label="总市值" width="120">
+            <el-table-column prop="f20" label="总市值" width="130">
               <template #default="scope">
                 {{ formatAmount(scope.row.f20) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f21" label="流动市值" width="120">
+            <el-table-column prop="f21" label="流动市值" width="130">
               <template #default="scope">
                 {{ formatAmount(scope.row.f21) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f22" label="涨速" width="100">
+            <el-table-column prop="f22" label="涨速" width="110">
               <template #default="scope">
                 {{ formatPercent(scope.row.f22) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f23" label="市净率" width="100">
+            <el-table-column prop="f23" label="市净率" width="110">
               <template #default="scope">
                 {{ formatNumber(scope.row.f23) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f24" label="60日涨跌幅" width="120">
+            <el-table-column prop="f24" label="60日涨跌幅" width="130">
               <template #default="scope">
                 <span :class="scope.row.f24 >= 0 ? 'rise' : 'fall'">
                   {{ formatPercent(scope.row.f24) }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="f25" label="今年涨跌幅" width="120">
+            <el-table-column prop="f25" label="今年涨跌幅" width="140">
               <template #default="scope">
                 <span :class="scope.row.f25 >= 0 ? 'rise' : 'fall'">
                   {{ formatPercent(scope.row.f25) }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="f62" label="主力净流入额(元)" width="140">
+            <el-table-column prop="f62" label="主力净流入额" width="150">
               <template #default="scope">
                 <span :class="scope.row.f62 >= 0 ? 'rise' : 'fall'">
                   {{ formatAmount(scope.row.f62) }}
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="f115" label="市盈率TTM" width="120">
+            <el-table-column prop="f115" label="市盈率TTM" width="130">
               <template #default="scope">
                 {{ formatNumber(scope.row.f115) }}
               </template>
             </el-table-column>
-            <el-table-column prop="f100" label="行业板块" width="120" />
-            <el-table-column prop="f102" label="地区板块" width="120" />
+            <el-table-column prop="f100" label="行业板块" width="130" />
+            <el-table-column prop="f102" label="地区板块" width="130" />
             <el-table-column prop="f103" label="概念板块" width="300" show-overflow-tooltip />
           </el-table>
-          
-          <!-- 分页 -->
+
           <div class="pagination-container">
             <el-pagination
               v-model:current-page="currentPage"
               v-model:page-size="pageSize"
-              :page-sizes="[50]"
-              :small="false"
+              :page-sizes="[100]"
               layout="total, sizes, prev, pager, next, jumper"
               :total="total"
               @size-change="handleSizeChange"
@@ -162,7 +211,7 @@
             />
           </div>
         </div>
-        
+
         <el-empty v-if="!loading && !error && stockPoolData.length === 0" description="暂无数据" />
       </div>
     </el-card>
@@ -170,24 +219,100 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { formatFetchedAt, getFetchedAt, parseApiPayload } from '../utils/responseMeta'
 
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
 const stockPoolData = ref<any[]>([])
 const currentPage = ref(1)
-const pageSize = ref(50)
+const pageSize = ref(100)
 const total = ref(0)
+const lastUpdated = ref('--:--:--')
 
-// 处理实盘数据按钮点击
+const formatNumber = (value: number | string): string => {
+  if (value === undefined || value === null || value === '-') return '-'
+  const num = Number(value)
+  return isNaN(num) ? '-' : num.toFixed(2)
+}
+
+const formatPercent = (value: number | string): string => {
+  if (value === undefined || value === null || value === '-') return '-'
+  const num = Number(value)
+  return isNaN(num) ? '-' : (num / 100).toFixed(2) + '%'
+}
+
+const formatVolume = (value: number | string): string => {
+  if (value === undefined || value === null || value === '-') return '-'
+  const num = Number(value)
+  if (isNaN(num)) return '-'
+  if (num >= 100000000) return (num / 100000000).toFixed(2) + '亿'
+  if (num >= 10000) return (num / 10000).toFixed(2) + '万'
+  return num.toString()
+}
+
+const formatAmount = (value: number | string): string => {
+  if (value === undefined || value === null || value === '-') return '-'
+  const num = Number(value)
+  if (isNaN(num)) return '-'
+  if (Math.abs(num) >= 100000000) return (num / 100000000).toFixed(2) + '亿'
+  if (Math.abs(num) >= 10000) return (num / 10000).toFixed(2) + '万'
+  return num.toString()
+}
+
+const totalPages = computed(() => {
+  if (!total.value || !pageSize.value) return 1
+  return Math.max(1, Math.ceil(total.value / pageSize.value))
+})
+
+const poolStats = computed(() => {
+  const rows = stockPoolData.value
+  const riseCount = rows.filter((item) => Number(item.f3) > 0).length
+  const fallCount = rows.filter((item) => Number(item.f3) < 0).length
+  const strongest = rows.reduce<any | null>((best, row) => {
+    if (!best) return row
+    return Number(row.f3) > Number(best.f3) ? row : best
+  }, null)
+  const netFlow = rows.reduce((sum, row) => sum + Number(row.f62 || 0), 0)
+
+  return [
+    {
+      label: '本页股票',
+      value: String(rows.length),
+      note: `当前第 ${currentPage.value} 页展示数量`,
+      tone: '',
+      compact: false
+    },
+    {
+      label: '上涨 / 下跌',
+      value: `${riseCount} / ${fallCount}`,
+      note: '便于快速判断池子整体强弱',
+      tone: riseCount >= fallCount ? 'rise' : 'fall',
+      compact: true
+    },
+    {
+      label: '最强个股',
+      value: strongest?.f14 ?? '--',
+      note: strongest ? `${formatPercent(strongest.f3)} 涨幅` : '暂无数据',
+      tone: Number(strongest?.f3 ?? 0) >= 0 ? 'rise' : 'fall',
+      compact: true
+    },
+    {
+      label: '主力净流入',
+      value: formatAmount(netFlow),
+      note: '当前页合计主力资金',
+      tone: netFlow >= 0 ? 'rise' : 'fall',
+      compact: false
+    }
+  ]
+})
+
 const handleRealDataClick = (row: any) => {
-  console.log('点击了实盘数据按钮，当前行数据:', row)
-  console.log('当前行股票代码:', row.f12)
   if (row && row.f12) {
-    goToRealData(row.f12)
+    goToRealData(row.f12, row.f13)
   } else {
     console.error('当前行数据为空或股票代码不存在')
   }
@@ -195,114 +320,46 @@ const handleRealDataClick = (row: any) => {
 
 const getRowKey = (row: Record<string, unknown>) => String(row.f12 ?? '')
 
-// 跳转到实盘委托买卖数据页面
-const goToRealData = (stockCode: any) => {
-  console.log('跳转到实盘数据，股票代码:', stockCode)
-  console.log('股票代码类型:', typeof stockCode)
-  console.log('router对象:', router)
+const goToRealData = (stockCode: any, market?: any) => {
   try {
-    // 确保股票代码不为空
-    if (!stockCode) {
-      console.error('股票代码为空')
-      return
-    }
+    if (!stockCode) return
     const code = String(stockCode)
-    console.log('转换后的股票代码:', code)
-    if (!code) {
-      console.error('转换后的股票代码为空')
-      return
+    if (!code) return
+
+    const query: Record<string, string> = { stockCode: code }
+    if (market !== undefined && market !== null && market !== '') {
+      query.market = String(market)
     }
-    console.log('准备跳转')
-    // 尝试使用router.push跳转
-    const jumpPath = `/stock-real?stockCode=${code}`
-    console.log('跳转路径:', jumpPath)
-    router.push(jumpPath)
-    console.log('跳转成功')
-  } catch (error) {
-    console.error('跳转失败:', error)
-    // 尝试使用window.location.href跳转
-    try {
-      const code = String(stockCode || '')
-      if (code) {
-        const jumpPath = `/stock-real?stockCode=${code}`
-        console.log('尝试使用window.location.href跳转:', jumpPath)
-        window.location.href = jumpPath
-        console.log('window.location.href跳转成功')
-      }
-    } catch (e) {
-      console.error('window.location.href跳转失败:', e)
-    }
+
+    router.push({
+      path: '/stock-real',
+      query
+    })
+  } catch (jumpError) {
+    console.error('跳转失败:', jumpError)
   }
 }
 
-// 格式化数字
-const formatNumber = (value: number | string): string => {
-  if (value === undefined || value === null || value === '-') return '-'
-  const num = Number(value)
-  return isNaN(num) ? '-' : num.toFixed(2)
-}
-
-// 格式化百分比
-const formatPercent = (value: number | string): string => {
-  if (value === undefined || value === null || value === '-') return '-'
-  const num = Number(value)
-  return isNaN(num) ? '-' : (num / 100).toFixed(2) + '%'
-}
-
-// 格式化成交量
-const formatVolume = (value: number | string): string => {
-  if (value === undefined || value === null || value === '-') return '-'
-  const num = Number(value)
-  if (isNaN(num)) return '-'
-  if (num >= 100000000) {
-    return (num / 100000000).toFixed(2) + '亿'
-  } else if (num >= 10000) {
-    return (num / 10000).toFixed(2) + '万'
-  }
-  return num.toString()
-}
-
-// 格式化成交额
-const formatAmount = (value: number | string): string => {
-  if (value === undefined || value === null || value === '-') return '-'
-  const num = Number(value)
-  if (isNaN(num)) return '-'
-  if (num >= 100000000) {
-    return (num / 100000000).toFixed(2) + '亿'
-  } else if (num >= 10000) {
-    return (num / 10000).toFixed(2) + '万'
-  }
-  return num.toString()
-}
-
-// 获取股票池数据
 const fetchStockPoolData = async (page: number = 1) => {
   loading.value = true
   error.value = ''
-  
+
   try {
     const response = await axios.get(`/api/stock/pool?pn=${page}`)
-    console.log('API返回原始数据:', response.data)
-    
-    // 解析后端返回的JSON
-    const parsedData = response.data
-    
-    console.log('解析后的数据:', parsedData)
-    
+    const parsedData = parseApiPayload(response.data)
+
     if (parsedData && parsedData.data && parsedData.data.diff) {
-      // 处理diff数据，确保是数组格式
       const diff = parsedData.data.diff
       if (Array.isArray(diff)) {
         stockPoolData.value = diff
       } else if (typeof diff === 'object') {
-        // 如果diff是对象格式，转换为数组
         stockPoolData.value = Object.values(diff)
       } else {
         stockPoolData.value = []
       }
-      
-      // 设置总数据量（这里假设后端返回总数据量，暂时使用一个较大的值）
-      total.value = 10000 // 实际应该从后端返回的total字段获取
+
+      total.value = Number(parsedData.data.total ?? stockPoolData.value.length)
+      lastUpdated.value = formatFetchedAt(getFetchedAt(parsedData))
     } else {
       error.value = '获取数据失败：数据格式不正确'
       stockPoolData.value = []
@@ -318,13 +375,11 @@ const fetchStockPoolData = async (page: number = 1) => {
   }
 }
 
-// 处理页码变化
 const handleCurrentChange = (val: number) => {
   currentPage.value = val
   fetchStockPoolData(val)
 }
 
-// 处理每页条数变化
 const handleSizeChange = (val: number) => {
   pageSize.value = val
   currentPage.value = 1
@@ -338,58 +393,38 @@ onMounted(() => {
 
 <style scoped>
 .stock-pool-container {
-  padding: 20px;
-  height: 100%;
-  box-sizing: border-box;
-  overflow: auto;
+  min-height: 100%;
 }
 
 .data-card {
-  height: 100%;
-  overflow: hidden;
-}
-
-.card-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .loading-container {
+  flex: 1;
   min-height: 400px;
-  overflow-x: auto;
-}
-
-.error-alert {
-  margin-bottom: 20px;
+  overflow: auto;
 }
 
 .table-container {
-  width: 100%;
-  overflow-x: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
-.el-table {
-  font-size: 12px;
-  min-width: 100%;
-}
-
-.el-table th {
-  background-color: #f5f7fa;
-  font-weight: bold;
+.market-table {
+  min-width: 2180px;
 }
 
 .pagination-container {
-  margin-top: 20px;
   display: flex;
   justify-content: flex-end;
 }
 
-.rise {
-  color: #f56c6c;
-}
-
-.fall {
-  color: #67c23a;
+.error-alert {
+  margin-bottom: 18px;
 }
 </style>

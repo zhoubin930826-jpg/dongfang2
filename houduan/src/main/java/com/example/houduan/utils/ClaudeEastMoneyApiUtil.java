@@ -29,10 +29,20 @@ public class ClaudeEastMoneyApiUtil {
     // ==================== 配置常量 ====================
 
     private static final String DEFAULT_COOKIE = "qgqp_b_id=94d44a0f08221ddfb2428bdd8bfe7b11; websitepoptg_api_time=1770711215544; st_nvi=Ik9rC3AnoCdAMCgHrgKXxa96b; nid18=06026b47b71743c68fc1927735443bbe; nid18_create_time=1770711216117; gviem=BRkNT6EyXAqgHguxnVYawb5ce; gviem_create_time=1770711216117; st_pvi=04493722350580; st_sp=2026-02-10%2016%3A13%3A35; st_inirUrl=https%3A%2F%2Fwww.baidu.com%2Flink";
-    private static final long COOKIE_REFRESH_INTERVAL = 10 * 60 * 1000; // 10分钟
-    private static final int MAX_RETRY_TIMES = 3; // 最大重试次数
-    private static final long BASE_DELAY = 100; // 基础延迟2秒
-    private static final long RANDOM_DELAY = 200; // 随机延迟0-3秒
+    private static final long DEFAULT_COOKIE_REFRESH_INTERVAL = 10 * 60 * 1000;
+    private static final int DEFAULT_MAX_RETRY_TIMES = 3;
+    private static final long DEFAULT_BASE_DELAY = 100;
+    private static final long DEFAULT_RANDOM_DELAY = 200;
+    private static final long DEFAULT_MIN_REQUEST_INTERVAL = 500;
+    private static final long DEFAULT_RATE_LIMIT_COOLDOWN = 30_000;
+    private static final long DEFAULT_FORBIDDEN_COOLDOWN = 60_000;
+    private static final int DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD = 6;
+    private static final long DEFAULT_FAILURE_COOLDOWN = 45_000;
+    private static final long DEFAULT_PROXY_COOLDOWN = 180_000;
+    private static final int DEFAULT_DIRECT_CONNECT_TIMEOUT_MS = 10_000;
+    private static final int DEFAULT_DIRECT_READ_TIMEOUT_MS = 10_000;
+    private static final int DEFAULT_PROXY_CONNECT_TIMEOUT_MS = 4_000;
+    private static final int DEFAULT_PROXY_READ_TIMEOUT_MS = 6_000;
     
     // ==================== User-Agent 池 ====================
     
@@ -76,20 +86,38 @@ public class ClaudeEastMoneyApiUtil {
     private static String currentCookie = DEFAULT_COOKIE;
     private static long lastCookieUpdateTime = 0;
     private static final AtomicInteger requestCounter = new AtomicInteger(0);
-    
+    private static final AtomicInteger consecutiveFailureCount = new AtomicInteger(0);
+    private static final AtomicInteger consecutiveRateLimitCount = new AtomicInteger(0);
+    private static final Object cooldownLock = new Object();
+    private static final ThreadLocal<ProxyConfig> currentProxyHolder = new ThreadLocal<>();
+
     // 令牌桶 - 频率控制 (每秒最多2个请求)
     private static long lastRequestTime = 0;
-    private static final long MIN_REQUEST_INTERVAL = 500; // 最小请求间隔500ms
+    private static volatile long minRequestIntervalMs = DEFAULT_MIN_REQUEST_INTERVAL;
+    private static volatile long cookieRefreshIntervalMs = DEFAULT_COOKIE_REFRESH_INTERVAL;
+    private static volatile int maxRetryTimes = DEFAULT_MAX_RETRY_TIMES;
+    private static volatile long baseDelayMs = DEFAULT_BASE_DELAY;
+    private static volatile long randomDelayMs = DEFAULT_RANDOM_DELAY;
+    private static volatile long rateLimitCooldownMs = DEFAULT_RATE_LIMIT_COOLDOWN;
+    private static volatile long forbiddenCooldownMs = DEFAULT_FORBIDDEN_COOLDOWN;
+    private static volatile int consecutiveFailureThreshold = DEFAULT_CONSECUTIVE_FAILURE_THRESHOLD;
+    private static volatile long failureCooldownMs = DEFAULT_FAILURE_COOLDOWN;
+    private static volatile long proxyCooldownMs = DEFAULT_PROXY_COOLDOWN;
+    private static volatile long globalCooldownUntil = 0L;
     
     // ==================== 代理配置（可选） ====================
     
     private static boolean useProxy = false;
+    private static volatile boolean proxyFailOpen = true;
     private static List<ProxyConfig> proxyList = new ArrayList<>();
     private static int currentProxyIndex = 0;
     
     static class ProxyConfig {
         String host;
         int port;
+        volatile long disabledUntil;
+        final AtomicInteger failureCount = new AtomicInteger(0);
+        final AtomicInteger successCount = new AtomicInteger(0);
         
         ProxyConfig(String host, int port) {
             this.host = host;
@@ -115,6 +143,8 @@ public class ClaudeEastMoneyApiUtil {
      * @return 响应内容
      */
     private static String fetchDataWithRetry(String urlString, int retryCount) {
+        waitForGlobalCooldownIfNeeded();
+
         // 频率控制
         rateLimitControl();
         
@@ -138,6 +168,7 @@ public class ClaudeEastMoneyApiUtil {
                 String content = readResponse(conn);
                 conn.disconnect();
                 logSuccess(urlString, retryCount);
+                recordSuccess();
                 return content;
                 
             } else if (responseCode == 429 || responseCode == 503) {
@@ -157,6 +188,8 @@ public class ClaudeEastMoneyApiUtil {
             
         } catch (Exception e) {
             return handleException(urlString, retryCount, e);
+        } finally {
+            currentProxyHolder.remove();
         }
     }
     
@@ -165,17 +198,21 @@ public class ClaudeEastMoneyApiUtil {
      */
     private static HttpURLConnection createConnection(URL url) throws Exception {
         HttpURLConnection conn;
+        boolean usingProxy = false;
         
-        if (useProxy && !proxyList.isEmpty()) {
-            Proxy proxy = getNextProxy();
+        ProxyConfig proxyConfig = selectNextAvailableProxy();
+        if (proxyConfig != null) {
+            currentProxyHolder.set(proxyConfig);
+            Proxy proxy = buildProxy(proxyConfig);
             conn = (HttpURLConnection) url.openConnection(proxy);
+            usingProxy = true;
         } else {
             conn = (HttpURLConnection) url.openConnection();
         }
         
         conn.setRequestMethod("GET");
-        conn.setConnectTimeout(15000);
-        conn.setReadTimeout(15000);
+        conn.setConnectTimeout(usingProxy ? DEFAULT_PROXY_CONNECT_TIMEOUT_MS : DEFAULT_DIRECT_CONNECT_TIMEOUT_MS);
+        conn.setReadTimeout(usingProxy ? DEFAULT_PROXY_READ_TIMEOUT_MS : DEFAULT_DIRECT_READ_TIMEOUT_MS);
         conn.setInstanceFollowRedirects(true);
         
         return conn;
@@ -263,19 +300,24 @@ public class ClaudeEastMoneyApiUtil {
      * 处理频率限制响应
      */
     private static String handleRateLimit(String urlString, int retryCount, int responseCode) {
-        if (retryCount >= MAX_RETRY_TIMES) {
+        int currentFailureCount = consecutiveFailureCount.incrementAndGet();
+        int currentRateLimitCount = consecutiveRateLimitCount.incrementAndGet();
+        markCurrentProxyFailure("rate-limit", proxyCooldownMs);
+
+        long retryCooldownMs = Math.max(rateLimitCooldownMs, (long) Math.pow(2, retryCount) * 5000);
+        applyGlobalCooldown(retryCooldownMs, "rate-limit");
+        applyDefensiveCooldownIfNeeded(currentFailureCount, "rate-limit");
+
+        if (currentRateLimitCount >= 2) {
+            fetchCookies();
+        }
+
+        if (retryCount >= maxRetryTimes) {
             System.err.println("达到最大重试次数，请求失败: " + urlString + " (响应码: " + responseCode + ")");
             return null;
         }
         
-        long waitTime = (long) Math.pow(2, retryCount) * 5000; // 指数退避: 5s, 10s, 20s
-        System.out.println("请求过快 (响应码: " + responseCode + ")，等待 " + waitTime + "ms 后重试...");
-        
-        try {
-            Thread.sleep(waitTime);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        System.out.println("请求过快 (响应码: " + responseCode + ")，进入冷却后重试...");
         
         return fetchDataWithRetry(urlString, retryCount + 1);
     }
@@ -284,7 +326,12 @@ public class ClaudeEastMoneyApiUtil {
      * 处理403/401响应
      */
     private static String handleForbidden(String urlString, int retryCount, int responseCode) {
-        if (retryCount >= MAX_RETRY_TIMES) {
+        int currentFailureCount = consecutiveFailureCount.incrementAndGet();
+        markCurrentProxyFailure("forbidden", Math.max(proxyCooldownMs, forbiddenCooldownMs));
+        applyGlobalCooldown(forbiddenCooldownMs, "forbidden");
+        applyDefensiveCooldownIfNeeded(currentFailureCount, "forbidden");
+
+        if (retryCount >= maxRetryTimes) {
             System.err.println("达到最大重试次数，可能被封禁: " + urlString + " (响应码: " + responseCode + ")");
             return null;
         }
@@ -293,14 +340,7 @@ public class ClaudeEastMoneyApiUtil {
         
         // 强制刷新Cookie
         fetchCookies();
-        
-        // 等待一段时间
-        try {
-            Thread.sleep(3000 * (retryCount + 1));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        
+
         return fetchDataWithRetry(urlString, retryCount + 1);
     }
     
@@ -308,19 +348,17 @@ public class ClaudeEastMoneyApiUtil {
      * 处理其他错误响应
      */
     private static String handleOtherError(String urlString, int retryCount, int responseCode) {
-        if (retryCount >= MAX_RETRY_TIMES) {
+        int currentFailureCount = consecutiveFailureCount.incrementAndGet();
+        applyGlobalCooldown(2000L * (retryCount + 1), "http-error");
+        applyDefensiveCooldownIfNeeded(currentFailureCount, "http-error");
+
+        if (retryCount >= maxRetryTimes) {
             System.err.println("达到最大重试次数，请求失败: " + urlString + " (响应码: " + responseCode + ")");
             return null;
         }
         
-        System.err.println("请求失败 (响应码: " + responseCode + ")，重试中... (" + (retryCount + 1) + "/" + MAX_RETRY_TIMES + ")");
-        
-        try {
-            Thread.sleep(2000 * (retryCount + 1));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        
+        System.err.println("请求失败 (响应码: " + responseCode + ")，重试中... (" + (retryCount + 1) + "/" + maxRetryTimes + ")");
+
         return fetchDataWithRetry(urlString, retryCount + 1);
     }
     
@@ -328,20 +366,19 @@ public class ClaudeEastMoneyApiUtil {
      * 处理异常
      */
     private static String handleException(String urlString, int retryCount, Exception e) {
-        if (retryCount >= MAX_RETRY_TIMES) {
+        int currentFailureCount = consecutiveFailureCount.incrementAndGet();
+        markCurrentProxyFailure("exception", proxyCooldownMs / 2);
+        applyGlobalCooldown(2000L * (retryCount + 1), "exception");
+        applyDefensiveCooldownIfNeeded(currentFailureCount, "exception");
+
+        if (retryCount >= maxRetryTimes) {
             System.err.println("达到最大重试次数，请求异常: " + urlString);
             e.printStackTrace();
             return null;
         }
         
-        System.err.println("请求异常，重试中... (" + (retryCount + 1) + "/" + MAX_RETRY_TIMES + "): " + e.getMessage());
-        
-        try {
-            Thread.sleep(2000 * (retryCount + 1));
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        }
-        
+        System.err.println("请求异常，重试中... (" + (retryCount + 1) + "/" + maxRetryTimes + "): " + e.getMessage());
+
         return fetchDataWithRetry(urlString, retryCount + 1);
     }
     
@@ -354,8 +391,8 @@ public class ClaudeEastMoneyApiUtil {
         long currentTime = System.currentTimeMillis();
         long timeSinceLastRequest = currentTime - lastRequestTime;
         
-        if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
-            long sleepTime = MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+        if (timeSinceLastRequest < minRequestIntervalMs) {
+            long sleepTime = minRequestIntervalMs - timeSinceLastRequest;
             try {
                 Thread.sleep(sleepTime);
             } catch (InterruptedException e) {
@@ -371,7 +408,8 @@ public class ClaudeEastMoneyApiUtil {
      */
     private static void randomDelay() {
         try {
-            long delay = BASE_DELAY + ThreadLocalRandom.current().nextLong(RANDOM_DELAY);
+            long randomPart = randomDelayMs <= 0 ? 0 : ThreadLocalRandom.current().nextLong(randomDelayMs + 1);
+            long delay = Math.max(0, baseDelayMs) + randomPart;
             Thread.sleep(delay);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -384,7 +422,7 @@ public class ClaudeEastMoneyApiUtil {
     private static void refreshCookieIfNeeded() {
         long currentTime = System.currentTimeMillis();
         
-        if (currentTime - lastCookieUpdateTime > COOKIE_REFRESH_INTERVAL) {
+        if (currentTime - lastCookieUpdateTime > cookieRefreshIntervalMs) {
             fetchCookies();
             lastCookieUpdateTime = currentTime;
         }
@@ -517,15 +555,41 @@ public class ClaudeEastMoneyApiUtil {
     /**
      * 获取下一个代理（轮询）
      */
-    private static synchronized Proxy getNextProxy() {
-        if (proxyList.isEmpty()) {
-            return Proxy.NO_PROXY;
+    private static synchronized ProxyConfig selectNextAvailableProxy() {
+        if (!useProxy || proxyList.isEmpty()) {
+            return null;
         }
-        
-        ProxyConfig config = proxyList.get(currentProxyIndex);
-        currentProxyIndex = (currentProxyIndex + 1) % proxyList.size();
-        
-        return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(config.host, config.port));
+
+        long currentTime = System.currentTimeMillis();
+        ProxyConfig earliestRecovery = null;
+
+        for (int i = 0; i < proxyList.size(); i++) {
+            ProxyConfig config = proxyList.get(currentProxyIndex);
+            currentProxyIndex = (currentProxyIndex + 1) % proxyList.size();
+
+            if (config.disabledUntil <= currentTime) {
+                return config;
+            }
+
+            if (earliestRecovery == null || config.disabledUntil < earliestRecovery.disabledUntil) {
+                earliestRecovery = config;
+            }
+        }
+
+        if (earliestRecovery != null) {
+            long waitMs = Math.max(0, earliestRecovery.disabledUntil - currentTime);
+            if (proxyFailOpen) {
+                System.out.println("所有代理都在冷却中，直接回退到直连请求");
+                return null;
+            }
+            if (waitMs > 0) {
+                System.out.println("所有代理都在冷却中，等待 " + waitMs + "ms 后继续...");
+                sleepQuietly(waitMs);
+            }
+            return earliestRecovery;
+        }
+
+        return null;
     }
     
     /**
@@ -549,9 +613,13 @@ public class ClaudeEastMoneyApiUtil {
         fetchCookies();
         lastCookieUpdateTime = System.currentTimeMillis();
         System.out.println("User-Agent 池大小: " + USER_AGENTS.length);
-        System.out.println("最小请求间隔: " + MIN_REQUEST_INTERVAL + "ms");
-        System.out.println("Cookie 刷新间隔: " + COOKIE_REFRESH_INTERVAL + "ms");
-        System.out.println("最大重试次数: " + MAX_RETRY_TIMES);
+        System.out.println("最小请求间隔: " + minRequestIntervalMs + "ms");
+        System.out.println("随机延迟: " + baseDelayMs + "-" + (baseDelayMs + randomDelayMs) + "ms");
+        System.out.println("Cookie 刷新间隔: " + cookieRefreshIntervalMs + "ms");
+        System.out.println("最大重试次数: " + maxRetryTimes);
+        System.out.println("限频冷却: " + rateLimitCooldownMs + "ms");
+        System.out.println("封禁冷却: " + forbiddenCooldownMs + "ms");
+        System.out.println("连续失败阈值: " + consecutiveFailureThreshold);
         System.out.println("==============================================================");
     }
     
@@ -574,5 +642,108 @@ public class ClaudeEastMoneyApiUtil {
     public static void resetStats() {
         requestCounter.set(0);
         System.out.println("统计信息已重置");
+    }
+
+    public static synchronized void configure(
+        long minRequestIntervalMs,
+        long baseDelayMs,
+        long randomDelayMs,
+        long cookieRefreshIntervalMs,
+        int maxRetryTimes,
+        long rateLimitCooldownMs,
+        long forbiddenCooldownMs,
+        int consecutiveFailureThreshold,
+        long failureCooldownMs,
+        long proxyCooldownMs,
+        boolean proxyFailOpen
+    ) {
+        ClaudeEastMoneyApiUtil.minRequestIntervalMs = Math.max(100, minRequestIntervalMs);
+        ClaudeEastMoneyApiUtil.baseDelayMs = Math.max(0, baseDelayMs);
+        ClaudeEastMoneyApiUtil.randomDelayMs = Math.max(0, randomDelayMs);
+        ClaudeEastMoneyApiUtil.cookieRefreshIntervalMs = Math.max(60_000, cookieRefreshIntervalMs);
+        ClaudeEastMoneyApiUtil.maxRetryTimes = Math.max(1, maxRetryTimes);
+        ClaudeEastMoneyApiUtil.rateLimitCooldownMs = Math.max(5_000, rateLimitCooldownMs);
+        ClaudeEastMoneyApiUtil.forbiddenCooldownMs = Math.max(10_000, forbiddenCooldownMs);
+        ClaudeEastMoneyApiUtil.consecutiveFailureThreshold = Math.max(1, consecutiveFailureThreshold);
+        ClaudeEastMoneyApiUtil.failureCooldownMs = Math.max(10_000, failureCooldownMs);
+        ClaudeEastMoneyApiUtil.proxyCooldownMs = Math.max(10_000, proxyCooldownMs);
+        ClaudeEastMoneyApiUtil.proxyFailOpen = proxyFailOpen;
+    }
+
+    private static Proxy buildProxy(ProxyConfig config) {
+        return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(config.host, config.port));
+    }
+
+    private static void waitForGlobalCooldownIfNeeded() {
+        while (true) {
+            long remainingMs = globalCooldownUntil - System.currentTimeMillis();
+            if (remainingMs <= 0) {
+                return;
+            }
+            System.out.println("全局冷却中，等待 " + remainingMs + "ms 后继续请求...");
+            sleepQuietly(Math.min(remainingMs, 5_000));
+        }
+    }
+
+    private static void applyGlobalCooldown(long cooldownMs, String reason) {
+        if (cooldownMs <= 0) {
+            return;
+        }
+        synchronized (cooldownLock) {
+            long candidateUntil = System.currentTimeMillis() + cooldownMs;
+            if (candidateUntil > globalCooldownUntil) {
+                globalCooldownUntil = candidateUntil;
+                System.out.println("触发全局冷却 [" + reason + "]，持续 " + cooldownMs + "ms");
+            }
+        }
+    }
+
+    private static void applyDefensiveCooldownIfNeeded(int currentFailureCount, String reason) {
+        if (currentFailureCount >= consecutiveFailureThreshold) {
+            applyGlobalCooldown(failureCooldownMs, "consecutive-failure:" + reason);
+        }
+    }
+
+    private static void recordSuccess() {
+        consecutiveFailureCount.set(0);
+        consecutiveRateLimitCount.set(0);
+        markCurrentProxySuccess();
+    }
+
+    private static void markCurrentProxySuccess() {
+        ProxyConfig proxyConfig = currentProxyHolder.get();
+        if (proxyConfig == null) {
+            return;
+        }
+        proxyConfig.failureCount.set(0);
+        proxyConfig.successCount.incrementAndGet();
+        if (proxyConfig.disabledUntil < System.currentTimeMillis()) {
+            proxyConfig.disabledUntil = 0;
+        }
+    }
+
+    private static void markCurrentProxyFailure(String reason, long cooldownMs) {
+        ProxyConfig proxyConfig = currentProxyHolder.get();
+        if (proxyConfig == null) {
+            return;
+        }
+        proxyConfig.failureCount.incrementAndGet();
+        long disabledUntil = System.currentTimeMillis() + Math.max(5_000, cooldownMs);
+        proxyConfig.disabledUntil = Math.max(proxyConfig.disabledUntil, disabledUntil);
+        System.out.println(
+            "代理进入冷却 [" + reason + "]: " + proxyConfig.host + ":" + proxyConfig.port
+                + " until " + proxyConfig.disabledUntil
+        );
+    }
+
+    private static void sleepQuietly(long sleepMs) {
+        if (sleepMs <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(sleepMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }
