@@ -5,6 +5,7 @@ import com.example.houduan.repository.CrawlJobLogRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 public class CrawlJobLogService {
@@ -25,5 +26,13 @@ public class CrawlJobLogService {
         entity.setRecordCount(recordCount);
         entity.setMessage(message);
         crawlJobLogRepository.save(entity);
+    }
+
+    public Optional<CrawlJobLogEntity> findLatestSuccessfulLog(String jobName, String targetKey) {
+        return crawlJobLogRepository.findTopByJobNameAndTargetKeyAndSuccessOrderByStartedAtDesc(jobName, targetKey, true);
+    }
+
+    public Optional<CrawlJobLogEntity> findLatestSuccessfulLog(String jobName) {
+        return crawlJobLogRepository.findTopByJobNameAndSuccessOrderByStartedAtDesc(jobName, true);
     }
 }

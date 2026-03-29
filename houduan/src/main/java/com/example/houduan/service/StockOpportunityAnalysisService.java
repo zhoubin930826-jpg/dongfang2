@@ -32,7 +32,9 @@ public class StockOpportunityAnalysisService {
     private final ObjectMapper objectMapper;
     private final EastMoneyApiClient eastMoneyApiClient;
     private final EastMoneyStorageService eastMoneyStorageService;
+    private final StockFactorEnrichmentService stockFactorEnrichmentService;
     private final Duration indexCacheTtl;
+    private final int stage3PreselectLimit;
 
     private final Object indexCacheMonitor = new Object();
     private CachedIndexBundle cachedIndexBundle;
@@ -41,12 +43,16 @@ public class StockOpportunityAnalysisService {
         ObjectMapper objectMapper,
         EastMoneyApiClient eastMoneyApiClient,
         EastMoneyStorageService eastMoneyStorageService,
-        @Value("${analysis.market-index.cache-ms:120000}") long indexCacheMs
+        StockFactorEnrichmentService stockFactorEnrichmentService,
+        @Value("${analysis.market-index.cache-ms:120000}") long indexCacheMs,
+        @Value("${analysis.stage3.preselect-limit:180}") int stage3PreselectLimit
     ) {
         this.objectMapper = objectMapper;
         this.eastMoneyApiClient = eastMoneyApiClient;
         this.eastMoneyStorageService = eastMoneyStorageService;
+        this.stockFactorEnrichmentService = stockFactorEnrichmentService;
         this.indexCacheTtl = Duration.ofMillis(Math.max(30000, indexCacheMs));
+        this.stage3PreselectLimit = Math.max(20, stage3PreselectLimit);
     }
 
     public Map<String, Object> buildOpportunityAnalysis(int limit) {
@@ -56,8 +62,6 @@ public class StockOpportunityAnalysisService {
         MarketIndexBundle marketIndexBundle = getMarketIndexBundle();
         MarketBreadth breadth = buildMarketBreadth(stockPoolSnapshot.rows(), industrySnapshot.rows(), marketIndexBundle.indices());
         List<IndustryRow> topIndustries = resolveTopIndustries(industrySnapshot.rows(), 8);
-        List<String> warnings = buildWarnings(stockPoolSnapshot, industrySnapshot, marketIndexBundle);
-
         Map<String, IndustryRow> industryByName = new LinkedHashMap<>();
         for (IndustryRow row : industrySnapshot.rows()) {
             if (row.industryName() != null && !row.industryName().isBlank()) {
@@ -65,12 +69,54 @@ public class StockOpportunityAnalysisService {
             }
         }
 
-        List<StockOpportunity> opportunities = new ArrayList<>();
+        List<RankedCandidate> rankedCandidates = new ArrayList<>();
         for (StockRow stockRow : stockPoolSnapshot.rows()) {
-            opportunities.add(scoreStock(stockRow, industryByName.get(stockRow.industryName()), breadth.sentimentScore()));
+            IndustryRow industryRow = industryByName.get(stockRow.industryName());
+            rankedCandidates.add(new RankedCandidate(
+                stockRow,
+                industryRow,
+                scoreStock(stockRow, industryRow, breadth.sentimentScore(), null)
+            ));
+        }
+
+        rankedCandidates.sort(Comparator.comparingDouble((RankedCandidate candidate) -> candidate.opportunity().score()).reversed());
+
+        int preselectCount = Math.min(stage3PreselectLimit, rankedCandidates.size());
+        int stage3QuoteCoverageCount = 0;
+        int stage3KlineCoverageCount = 0;
+        List<StockOpportunity> opportunities = new ArrayList<>(rankedCandidates.size());
+
+        for (int index = 0; index < rankedCandidates.size(); index++) {
+            RankedCandidate rankedCandidate = rankedCandidates.get(index);
+            if (index < preselectCount) {
+                StockFactorEnrichmentService.Stage3Factor stage3Factor =
+                    stockFactorEnrichmentService.loadStage3Factor(rankedCandidate.stockRow().stockCode());
+                if (stage3Factor.quoteAvailable()) {
+                    stage3QuoteCoverageCount++;
+                }
+                if (stage3Factor.technicalAvailable()) {
+                    stage3KlineCoverageCount++;
+                }
+                opportunities.add(scoreStock(
+                    rankedCandidate.stockRow(),
+                    rankedCandidate.industryRow(),
+                    breadth.sentimentScore(),
+                    stage3Factor
+                ));
+            } else {
+                opportunities.add(rankedCandidate.opportunity());
+            }
         }
 
         opportunities.sort(Comparator.comparingDouble(StockOpportunity::score).reversed());
+        List<String> warnings = buildWarnings(
+            stockPoolSnapshot,
+            industrySnapshot,
+            marketIndexBundle,
+            preselectCount,
+            stage3QuoteCoverageCount,
+            stage3KlineCoverageCount
+        );
 
         Map<String, Object> summary = new LinkedHashMap<>();
         summary.put("analysisGeneratedAt", LocalDateTime.now().toString());
@@ -92,6 +138,11 @@ public class StockOpportunityAnalysisService {
         summary.put("limitDownCount", breadth.limitDownCount());
         summary.put("averageChangePct", round2(breadth.averageChangePct()));
         summary.put("advanceRatio", round2(breadth.advanceRatio() * 100));
+        summary.put("stage3PreselectCount", preselectCount);
+        summary.put("stage3QuoteCoverageCount", stage3QuoteCoverageCount);
+        summary.put("stage3KlineCoverageCount", stage3KlineCoverageCount);
+        summary.put("stage3QuoteCoverageRatio", preselectCount <= 0 ? 0 : round2((double) stage3QuoteCoverageCount / preselectCount * 100));
+        summary.put("stage3KlineCoverageRatio", preselectCount <= 0 ? 0 : round2((double) stage3KlineCoverageCount / preselectCount * 100));
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("summary", summary);
@@ -269,11 +320,11 @@ public class StockOpportunityAnalysisService {
             rows.add(new IndustryRow(
                 industryCode,
                 textValue(item.get("f14")),
-                numberValue(item.get("f3")),
+                scaledPercent(item.get("f3")),
                 numberValue(item.get("f62")),
-                intValue(item.get("f104")),
-                intValue(item.get("f105")),
-                intValue(item.get("f106")),
+                intOrZero(item.get("f104")),
+                intOrZero(item.get("f105")),
+                intOrZero(item.get("f106")),
                 textValue(item.get("f128")),
                 textValue(item.get("f140"))
             ));
@@ -349,7 +400,12 @@ public class StockOpportunityAnalysisService {
         return rows.size() <= limit ? rows : rows.subList(0, limit);
     }
 
-    private StockOpportunity scoreStock(StockRow stockRow, IndustryRow industryRow, double marketSentimentScore) {
+    private StockOpportunity scoreStock(
+        StockRow stockRow,
+        IndustryRow industryRow,
+        double marketSentimentScore,
+        StockFactorEnrichmentService.Stage3Factor stage3Factor
+    ) {
         double trendScore =
             100 * (
                 0.45 * normalize(stockRow.changePct(), -2, 9) +
@@ -374,6 +430,8 @@ public class StockOpportunityAnalysisService {
                 0.20 * scorePreferredRange(stockRow.pb(), 1, 6, 15) +
                 0.35 * normalize(stockRow.marketCap(), 5_000_000_000d, 150_000_000_000d)
             );
+        double quoteScore = stage3Factor != null ? stage3Factor.quoteScore() : 50;
+        double technicalScore = stage3Factor != null ? stage3Factor.technicalScore() : 50;
 
         double sectorScore = 40;
         double sectorChangePct = 0;
@@ -415,6 +473,18 @@ public class StockOpportunityAnalysisService {
         if (industryRow == null) {
             riskPenalty += 4;
         }
+        if (stage3Factor != null) {
+            riskPenalty += stage3Factor.riskPenalty();
+            if (!stage3Factor.quoteAvailable()) {
+                riskPenalty += 1.5;
+            }
+            if (!stage3Factor.technicalAvailable()) {
+                riskPenalty += 1.0;
+            }
+            for (String riskTag : stage3Factor.riskTags()) {
+                appendUnique(riskTags, riskTag);
+            }
+        }
 
         double baseScore =
             0.28 * trendScore +
@@ -423,7 +493,16 @@ public class StockOpportunityAnalysisService {
             0.14 * liquidityScore +
             0.12 * qualityScore;
         double marketBoost = (marketSentimentScore - 50) * 0.08;
-        double finalScore = clamp(baseScore + marketBoost - riskPenalty, 0, 100);
+        double stage3Boost = 0;
+        if (stage3Factor != null) {
+            if (stage3Factor.quoteAvailable()) {
+                stage3Boost += (quoteScore - 50) * 0.10;
+            }
+            if (stage3Factor.technicalAvailable()) {
+                stage3Boost += (technicalScore - 50) * 0.12;
+            }
+        }
+        double finalScore = clamp(baseScore + marketBoost + stage3Boost - riskPenalty, 0, 100);
 
         List<String> reasons = new ArrayList<>();
         if (stockRow.changePct() >= 3) {
@@ -453,6 +532,20 @@ public class StockOpportunityAnalysisService {
         if (reasons.isEmpty()) {
             reasons.add("综合因子分数居前");
         }
+        if (stage3Factor != null) {
+            if (stage3Factor.quoteAvailable() && quoteScore >= 68) {
+                reasons.add("盘口结构偏强");
+            }
+            if (stage3Factor.technicalAvailable() && technicalScore >= 68) {
+                reasons.add("日线趋势结构良好");
+            }
+            for (String signal : stage3Factor.positiveSignals()) {
+                appendUnique(reasons, signal);
+            }
+        }
+        if (reasons.isEmpty()) {
+            reasons.add("综合因子分数居前");
+        }
 
         return new StockOpportunity(
             stockRow.stockCode(),
@@ -476,10 +569,14 @@ public class StockOpportunityAnalysisService {
             round1(sectorScore),
             round1(liquidityScore),
             round1(qualityScore),
+            round1(quoteScore),
+            round1(technicalScore),
             round1(riskPenalty),
             round2(sectorChangePct),
             round2(sectorBreadth * 100),
             round0(sectorNetInflow),
+            stage3Factor != null && stage3Factor.quoteAvailable() ? stage3Factor.quoteFetchedAt() : null,
+            stage3Factor != null && stage3Factor.technicalAvailable() ? stage3Factor.klineFetchedAt() : null,
             reasons,
             riskTags
         );
@@ -519,6 +616,13 @@ public class StockOpportunityAnalysisService {
         return riskTags;
     }
 
+    private void appendUnique(List<String> values, String candidate) {
+        if (candidate == null || candidate.isBlank() || values.contains(candidate)) {
+            return;
+        }
+        values.add(candidate);
+    }
+
     private Map<String, Object> toCandidatePayload(StockOpportunity opportunity) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("stockCode", opportunity.stockCode());
@@ -537,7 +641,11 @@ public class StockOpportunityAnalysisService {
         payload.put("marketCap", round0(opportunity.marketCap()));
         payload.put("peTtm", round2(opportunity.peTtm()));
         payload.put("score", round1(opportunity.score()));
-        payload.put("qualityScore", opportunity.qualityScore());
+        payload.put("qualityScore", round1(opportunity.qualityScore()));
+        payload.put("quoteFetchedAt", toText(opportunity.quoteFetchedAt()));
+        payload.put("klineFetchedAt", toText(opportunity.klineFetchedAt()));
+        payload.put("quoteAvailable", opportunity.quoteFetchedAt() != null);
+        payload.put("technicalAvailable", opportunity.klineFetchedAt() != null);
 
         Map<String, Object> scoreDetail = new LinkedHashMap<>();
         scoreDetail.put("trend", opportunity.trendScore());
@@ -545,6 +653,8 @@ public class StockOpportunityAnalysisService {
         scoreDetail.put("sector", opportunity.sectorScore());
         scoreDetail.put("liquidity", opportunity.liquidityScore());
         scoreDetail.put("quality", opportunity.qualityScore());
+        scoreDetail.put("quote", opportunity.quoteScore());
+        scoreDetail.put("technical", opportunity.technicalScore());
         scoreDetail.put("riskPenalty", opportunity.riskPenalty());
         payload.put("scoreDetail", scoreDetail);
 
@@ -594,7 +704,10 @@ public class StockOpportunityAnalysisService {
     private List<String> buildWarnings(
         StockPoolSnapshot stockPoolSnapshot,
         IndustrySnapshot industrySnapshot,
-        MarketIndexBundle marketIndexBundle
+        MarketIndexBundle marketIndexBundle,
+        int preselectCount,
+        int stage3QuoteCoverageCount,
+        int stage3KlineCoverageCount
     ) {
         List<String> warnings = new ArrayList<>();
         if (stockPoolSnapshot.missingPageCount() > 0) {
@@ -611,6 +724,16 @@ public class StockOpportunityAnalysisService {
         }
         if (marketIndexBundle.indices().isEmpty()) {
             warnings.add("大盘指数抓取失败，市场情绪分数退化为本地股票池估算");
+        }
+        if (preselectCount > 0) {
+            double quoteCoverageRatio = (double) stage3QuoteCoverageCount / preselectCount;
+            double klineCoverageRatio = (double) stage3KlineCoverageCount / preselectCount;
+            if (quoteCoverageRatio < 0.6) {
+                warnings.add("第三阶段候选中的盘口覆盖率偏低，部分股票仍在使用基础分排序");
+            }
+            if (klineCoverageRatio < 0.8) {
+                warnings.add("第三阶段候选中的日线覆盖率偏低，趋势增强分存在缺口");
+            }
         }
         return warnings;
     }
@@ -685,6 +808,11 @@ public class StockOpportunityAnalysisService {
             return null;
         }
         return node.canConvertToInt() ? node.asInt() : null;
+    }
+
+    private int intOrZero(JsonNode node) {
+        Integer value = intValue(node);
+        return value == null ? 0 : value;
     }
 
     private double numberValue(JsonNode node) {
@@ -795,6 +923,9 @@ public class StockOpportunityAnalysisService {
     private record MarketIndexBundle(List<MarketIndex> indices, LocalDateTime fetchedAt) {
     }
 
+    private record RankedCandidate(StockRow stockRow, IndustryRow industryRow, StockOpportunity opportunity) {
+    }
+
     private record StockRow(
         String stockCode,
         Integer market,
@@ -882,10 +1013,14 @@ public class StockOpportunityAnalysisService {
         double sectorScore,
         double liquidityScore,
         double qualityScore,
+        double quoteScore,
+        double technicalScore,
         double riskPenalty,
         double sectorChangePct,
         double sectorBreadthPct,
         double sectorNetInflow,
+        LocalDateTime quoteFetchedAt,
+        LocalDateTime klineFetchedAt,
         List<String> reasons,
         List<String> riskTags
     ) {
