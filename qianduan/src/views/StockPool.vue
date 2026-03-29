@@ -2,7 +2,7 @@
   <div class="page-shell stock-pool-container">
     <section class="page-hero">
       <div>
-        <p class="page-kicker">Stock Universe</p>
+        <p class="page-kicker">股票池</p>
         <h2 class="page-title">全市场股票池</h2>
         <p class="page-subtitle">
           用一张交易工作表把股票池铺开，适合先筛行业、看概念分布，再跳到单只股票的盘口和 K 线做深看。
@@ -44,7 +44,7 @@
       <template #header>
         <div class="section-header">
           <div>
-            <p class="section-kicker">Market Tape</p>
+            <p class="section-kicker">市场行情</p>
             <h3 class="section-title">股票池明细</h3>
           </div>
           <p class="section-note">点击“实盘数据”可继续查看盘口和长周期 K 线。</p>

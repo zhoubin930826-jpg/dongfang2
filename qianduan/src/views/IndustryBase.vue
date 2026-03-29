@@ -2,7 +2,7 @@
   <div class="page-shell industry-base-container">
     <section class="page-hero">
       <div>
-        <p class="page-kicker">Sector Monitor</p>
+        <p class="page-kicker">行业监测</p>
         <h2 class="page-title">行业热度全景</h2>
         <p class="page-subtitle">
           先看板块强弱，再判断资金偏好。把行业涨跌、主力净流入和上涨家数放到一个屏幕里，更适合日内扫盘。
@@ -40,7 +40,7 @@
       <template #header>
         <div class="section-header">
           <div>
-            <p class="section-kicker">Industry Tape</p>
+            <p class="section-kicker">行业行情</p>
             <h3 class="section-title">板块行情列表</h3>
           </div>
           <p class="section-note">点击“历史详细”进入行业 K 线视图。</p>

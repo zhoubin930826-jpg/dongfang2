@@ -2,7 +2,7 @@
   <div class="page-shell stock-real-container">
     <section class="page-hero">
       <div>
-        <p class="page-kicker">Real-time Tape</p>
+        <p class="page-kicker">实时盘口</p>
         <h2 class="page-title">{{ stockInfo?.f58 || '个股实盘看板' }}</h2>
         <p class="page-subtitle">
           {{ stockInfo ? `${stockInfo.f57} / ${stockInfo.f128 || '未识别板块'}` : '输入股票代码，先看盘口，再看 K 线与成交结构。' }}
@@ -30,11 +30,11 @@
             <strong>{{ stockInfo?.f128 || '等待查询' }}</strong>
           </div>
           <div class="hero-badge">
-            <span class="hero-badge-label">Quote Fetched</span>
+            <span class="hero-badge-label">盘口抓取时间</span>
             <strong>{{ quoteFetchedAt }}</strong>
           </div>
           <div class="hero-badge">
-            <span class="hero-badge-label">Kline Fetched</span>
+            <span class="hero-badge-label">K线抓取时间</span>
             <strong>{{ klineFetchedAt }}</strong>
           </div>
         </div>
@@ -59,7 +59,7 @@
       <template #header>
         <div class="section-header">
           <div>
-            <p class="section-kicker">Order Book</p>
+            <p class="section-kicker">盘口工作区</p>
             <h3 class="section-title">盘口与趋势联动</h3>
           </div>
           <p class="section-note">盘口先展示，K 线和成交结构随后补齐。</p>
@@ -81,7 +81,7 @@
             <template #header>
               <div class="chart-card-header">
                 <span>盘口速览</span>
-                <small>Order Snapshot</small>
+                <small>盘口快照</small>
               </div>
             </template>
             <el-table :data="stockDataList" border class="market-table snapshot-table">
@@ -126,7 +126,7 @@
                   <template #header>
                     <div class="chart-card-header">
                       <span>价格走势</span>
-                      <small>Open / Close / High / Low</small>
+                      <small>开盘 / 收盘 / 最高 / 最低</small>
                     </div>
                   </template>
                   <div ref="priceChartRef" class="chart"></div>
@@ -138,7 +138,7 @@
                   <template #header>
                     <div class="chart-card-header">
                       <span>成交量</span>
-                      <small>Volume</small>
+                      <small>成交量</small>
                     </div>
                   </template>
                   <div ref="volumeChartRef" class="chart"></div>
@@ -150,7 +150,7 @@
                   <template #header>
                     <div class="chart-card-header">
                       <span>成交额</span>
-                      <small>Amount</small>
+                      <small>成交额</small>
                     </div>
                   </template>
                   <div ref="amountChartRef" class="chart"></div>
@@ -162,7 +162,7 @@
                   <template #header>
                     <div class="chart-card-header">
                       <span>振幅</span>
-                      <small>Volatility</small>
+                      <small>波动率</small>
                     </div>
                   </template>
                   <div ref="amplitudeChartRef" class="chart"></div>
@@ -174,7 +174,7 @@
                   <template #header>
                     <div class="chart-card-header">
                       <span>涨跌幅</span>
-                      <small>Change %</small>
+                      <small>涨跌幅</small>
                     </div>
                   </template>
                   <div ref="changePercentChartRef" class="chart"></div>
@@ -186,7 +186,7 @@
                   <template #header>
                     <div class="chart-card-header">
                       <span>涨跌额</span>
-                      <small>Change Value</small>
+                      <small>涨跌额</small>
                     </div>
                   </template>
                   <div ref="changeAmountChartRef" class="chart"></div>
@@ -198,7 +198,7 @@
                   <template #header>
                     <div class="chart-card-header">
                       <span>换手率</span>
-                      <small>Turnover</small>
+                      <small>换手率</small>
                     </div>
                   </template>
                   <div ref="turnoverChartRef" class="chart"></div>

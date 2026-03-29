@@ -2,28 +2,28 @@
   <div class="page-shell industry-kline-container">
     <section class="page-hero">
       <div>
-        <p class="page-kicker">Industry Trend</p>
-        <h2 class="page-title">{{ industryInfo?.name || 'Industry K-Line' }}</h2>
+        <p class="page-kicker">行业趋势</p>
+        <h2 class="page-title">{{ industryInfo?.name || '行业K线' }}</h2>
         <p class="page-subtitle">
-          Review price structure, turnover, and historical range for the selected industry board.
+          查看当前行业板块的价格结构、换手表现和历史区间，辅助判断趋势延续性。
         </p>
       </div>
 
       <div class="page-actions">
         <div class="hero-badge">
-          <span class="hero-badge-label">Industry Code</span>
+          <span class="hero-badge-label">行业代码</span>
           <strong>{{ industryInfo?.code || getIndustryCode() }}</strong>
         </div>
         <div class="hero-badge">
-          <span class="hero-badge-label">Date Range</span>
+          <span class="hero-badge-label">观察区间</span>
           <strong>{{ activeDateLabel }}</strong>
         </div>
         <div class="hero-badge">
-          <span class="hero-badge-label">DB Fetched</span>
+          <span class="hero-badge-label">数据库抓取</span>
           <strong>{{ fetchedAtLabel }}</strong>
         </div>
-        <el-button type="primary" @click="fetchIndustryKlineData">Refresh</el-button>
-        <el-button type="default" @click="handleBack">Back</el-button>
+        <el-button type="primary" @click="fetchIndustryKlineData">刷新数据</el-button>
+        <el-button type="default" @click="handleBack">返回</el-button>
       </div>
     </section>
 
@@ -43,16 +43,16 @@
       <template #header>
         <div class="section-header">
           <div>
-            <p class="section-kicker">K-Line Workspace</p>
-            <h3 class="section-title">Industry History</h3>
+            <p class="section-kicker">K线工作区</p>
+            <h3 class="section-title">行业历史走势</h3>
           </div>
           <p class="section-note">
-            The page now shows the database fetched time so you can judge how fresh the history is.
+            页面会展示数据库抓取时间，方便判断这份行业历史数据的新鲜度。
           </p>
         </div>
       </template>
 
-      <div v-loading="loading" element-loading-text="Loading industry history..." class="loading-container">
+      <div v-loading="loading" element-loading-text="加载行业历史数据中..." class="loading-container">
         <el-alert
           v-if="error"
           :title="error"
@@ -65,21 +65,21 @@
         <template v-if="!error && industryInfo">
           <div class="filter-bar market-subcard">
             <el-form :inline="true" class="time-filter-form" @submit.prevent="handleTimeFilter">
-              <el-form-item label="Start">
+              <el-form-item label="开始时间">
                 <el-date-picker
                   v-model="dateRange[0]"
                   type="date"
-                  placeholder="Start date"
+                  placeholder="选择开始日期"
                   format="YYYY-MM-DD"
                   value-format="YYYY-MM-DD"
                   @change="handleTimeFilter"
                 />
               </el-form-item>
-              <el-form-item label="End">
+              <el-form-item label="结束时间">
                 <el-date-picker
                   v-model="dateRange[1]"
                   type="date"
-                  placeholder="End date"
+                  placeholder="选择结束日期"
                   format="YYYY-MM-DD"
                   value-format="YYYY-MM-DD"
                   @change="handleTimeFilter"
@@ -90,12 +90,12 @@
 
           <el-card class="info-card market-subcard" :body-style="{ padding: '12px 14px' }">
             <el-descriptions :column="6" border>
-              <el-descriptions-item label="Code">{{ industryInfo.code }}</el-descriptions-item>
-              <el-descriptions-item label="Market">{{ industryInfo.market }}</el-descriptions-item>
-              <el-descriptions-item label="Name">{{ industryInfo.name }}</el-descriptions-item>
-              <el-descriptions-item label="Decimal">{{ industryInfo.decimal }}</el-descriptions-item>
-              <el-descriptions-item label="Total">{{ industryInfo.dktotal }}</el-descriptions-item>
-              <el-descriptions-item label="Pre K Price">{{ formatNumber(industryInfo.preKPrice) }}</el-descriptions-item>
+              <el-descriptions-item label="代码">{{ industryInfo.code }}</el-descriptions-item>
+              <el-descriptions-item label="市场">{{ industryInfo.market }}</el-descriptions-item>
+              <el-descriptions-item label="名称">{{ industryInfo.name }}</el-descriptions-item>
+              <el-descriptions-item label="小数位">{{ industryInfo.decimal }}</el-descriptions-item>
+              <el-descriptions-item label="总数">{{ industryInfo.dktotal }}</el-descriptions-item>
+              <el-descriptions-item label="前值">{{ formatNumber(industryInfo.preKPrice) }}</el-descriptions-item>
             </el-descriptions>
           </el-card>
 
@@ -105,8 +105,8 @@
                 <el-card class="chart-card view-card">
                   <template #header>
                     <div class="chart-card-header">
-                      <span>Price Trend</span>
-                      <small>Open / Close / High / Low</small>
+                      <span>价格走势</span>
+                      <small>开盘 / 收盘 / 最高 / 最低</small>
                     </div>
                   </template>
                   <div ref="priceChartRef" class="chart"></div>
@@ -117,8 +117,8 @@
                 <el-card class="chart-card view-card">
                   <template #header>
                     <div class="chart-card-header">
-                      <span>Volume</span>
-                      <small>Trading Volume</small>
+                      <span>成交量</span>
+                      <small>交易量</small>
                     </div>
                   </template>
                   <div ref="volumeChartRef" class="chart"></div>
@@ -129,8 +129,8 @@
                 <el-card class="chart-card view-card">
                   <template #header>
                     <div class="chart-card-header">
-                      <span>Amount</span>
-                      <small>Trading Amount</small>
+                      <span>成交额</span>
+                      <small>交易额</small>
                     </div>
                   </template>
                   <div ref="amountChartRef" class="chart"></div>
@@ -141,8 +141,8 @@
                 <el-card class="chart-card view-card">
                   <template #header>
                     <div class="chart-card-header">
-                      <span>Amplitude</span>
-                      <small>Volatility</small>
+                      <span>振幅</span>
+                      <small>波动率</small>
                     </div>
                   </template>
                   <div ref="amplitudeChartRef" class="chart"></div>
@@ -153,8 +153,8 @@
                 <el-card class="chart-card view-card">
                   <template #header>
                     <div class="chart-card-header">
-                      <span>Change %</span>
-                      <small>Percent Change</small>
+                      <span>涨跌幅</span>
+                      <small>百分比变化</small>
                     </div>
                   </template>
                   <div ref="changePercentChartRef" class="chart"></div>
@@ -165,8 +165,8 @@
                 <el-card class="chart-card view-card">
                   <template #header>
                     <div class="chart-card-header">
-                      <span>Change Value</span>
-                      <small>Point Change</small>
+                      <span>涨跌额</span>
+                      <small>点位变化</small>
                     </div>
                   </template>
                   <div ref="changeAmountChartRef" class="chart"></div>
@@ -177,8 +177,8 @@
                 <el-card class="chart-card view-card">
                   <template #header>
                     <div class="chart-card-header">
-                      <span>Turnover</span>
-                      <small>Turnover Rate</small>
+                      <span>换手率</span>
+                      <small>换手表现</small>
                     </div>
                   </template>
                   <div ref="turnoverChartRef" class="chart"></div>
@@ -190,7 +190,7 @@
 
         <el-empty
           v-if="!loading && !error && !industryInfo"
-          description="No industry history available"
+          description="暂无行业历史数据"
         />
       </div>
     </el-card>
@@ -279,10 +279,10 @@ const latestKline = computed(() => {
 
 const activeDateLabel = computed(() => {
   const [startDate, endDate] = dateRange.value
-  if (startDate && endDate) return `${startDate} -> ${endDate}`
-  if (startDate) return `${startDate} -> latest`
-  if (endDate) return `up to ${endDate}`
-  return 'full history'
+  if (startDate && endDate) return `${startDate} 至 ${endDate}`
+  if (startDate) return `${startDate} 至最新`
+  if (endDate) return `截至 ${endDate}`
+  return '全量历史'
 })
 
 const klineStats = computed(() => {
@@ -293,39 +293,39 @@ const klineStats = computed(() => {
   const lows = klineData.value.map((item) => item.low)
   return [
     {
-      label: 'Last Close',
+      label: '最新收盘',
       value: formatNumber(latest.close),
       note: latest.time,
       tone: latest.changePercent >= 0 ? 'rise' : 'fall'
     },
     {
-      label: 'Change %',
+      label: '涨跌幅',
       value: formatPercent(latest.changePercent),
-      note: `Change ${formatNumber(latest.changeAmount)}`,
+      note: `涨跌额 ${formatNumber(latest.changeAmount)}`,
       tone: latest.changePercent >= 0 ? 'rise' : 'fall'
     },
     {
-      label: 'Range High',
+      label: '区间最高',
       value: formatNumber(Math.max(...highs)),
-      note: 'Highest point in filtered window',
+      note: '当前筛选区间内最高点',
       tone: ''
     },
     {
-      label: 'Range Low',
+      label: '区间最低',
       value: formatNumber(Math.min(...lows)),
-      note: 'Lowest point in filtered window',
+      note: '当前筛选区间内最低点',
       tone: ''
     },
     {
-      label: 'Latest Amount',
+      label: '最新成交额',
       value: formatCompact(latest.amount),
-      note: `Volume ${formatCompact(latest.volume)}`,
+      note: `成交量 ${formatCompact(latest.volume)}`,
       tone: ''
     },
     {
-      label: 'Turnover',
+      label: '换手率',
       value: formatPercent(latest.turnover),
-      note: `Amplitude ${formatPercent(latest.amplitude)}`,
+      note: `振幅 ${formatPercent(latest.amplitude)}`,
       tone: ''
     }
   ]
@@ -393,10 +393,10 @@ const renderPriceChart = () => {
       splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.18)' } }
     },
     series: [
-      { name: 'Open', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.open), lineStyle: { color: '#2563eb', width: 2 } },
-      { name: 'Close', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.close), lineStyle: { color: '#dc2626', width: 2 } },
-      { name: 'High', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.high), lineStyle: { color: '#16a34a', width: 2 } },
-      { name: 'Low', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.low), lineStyle: { color: '#f59e0b', width: 2 } }
+      { name: '开盘价', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.open), lineStyle: { color: '#2563eb', width: 2 } },
+      { name: '收盘价', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.close), lineStyle: { color: '#dc2626', width: 2 } },
+      { name: '最高价', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.high), lineStyle: { color: '#16a34a', width: 2 } },
+      { name: '最低价', type: 'line', smooth: true, showSymbol: false, data: klineData.value.map((item) => item.low), lineStyle: { color: '#f59e0b', width: 2 } }
     ]
   })
 }
@@ -441,12 +441,12 @@ const renderSingleSeriesChart = (
 
 const renderAllCharts = () => {
   renderPriceChart()
-  renderSingleSeriesChart(volumeChartRef.value, 'Volume', klineData.value.map((item) => item.volume), '#64748b')
-  renderSingleSeriesChart(amountChartRef.value, 'Amount', klineData.value.map((item) => item.amount), '#2563eb')
-  renderSingleSeriesChart(amplitudeChartRef.value, 'Amplitude', klineData.value.map((item) => item.amplitude), '#dc2626')
-  renderSingleSeriesChart(changePercentChartRef.value, 'Change %', klineData.value.map((item) => item.changePercent), '#16a34a')
-  renderSingleSeriesChart(changeAmountChartRef.value, 'Change Value', klineData.value.map((item) => item.changeAmount), '#f59e0b')
-  renderSingleSeriesChart(turnoverChartRef.value, 'Turnover', klineData.value.map((item) => item.turnover), '#7c3aed')
+  renderSingleSeriesChart(volumeChartRef.value, '成交量', klineData.value.map((item) => item.volume), '#64748b')
+  renderSingleSeriesChart(amountChartRef.value, '成交额', klineData.value.map((item) => item.amount), '#2563eb')
+  renderSingleSeriesChart(amplitudeChartRef.value, '振幅', klineData.value.map((item) => item.amplitude), '#dc2626')
+  renderSingleSeriesChart(changePercentChartRef.value, '涨跌幅', klineData.value.map((item) => item.changePercent), '#16a34a')
+  renderSingleSeriesChart(changeAmountChartRef.value, '涨跌额', klineData.value.map((item) => item.changeAmount), '#f59e0b')
+  renderSingleSeriesChart(turnoverChartRef.value, '换手率', klineData.value.map((item) => item.turnover), '#7c3aed')
 }
 
 const resizeCharts = () => {
@@ -508,7 +508,7 @@ const fetchIndustryKlineData = async () => {
     fetchedAtLabel.value = formatFetchedAt(getFetchedAt(parsedData))
 
     if (!parsedData || parsedData.rc !== 0 || !parsedData.data) {
-      throw new Error(parsedData?.message || 'Failed to load industry history')
+      throw new Error(parsedData?.message || '加载行业历史数据失败')
     }
 
     const payload = parsedData.data
@@ -524,7 +524,7 @@ const fetchIndustryKlineData = async () => {
     allKlineData.value = parseKlineData(payload.klines || [])
     await applyDateFilter()
   } catch (err: any) {
-    error.value = err?.message || 'Failed to load industry history'
+    error.value = err?.message || '加载行业历史数据失败'
     industryInfo.value = null
     allKlineData.value = []
     klineData.value = []

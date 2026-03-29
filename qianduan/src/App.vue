@@ -2,7 +2,7 @@
   <div class="app-shell">
     <header class="terminal-hero">
       <div class="terminal-copy">
-        <p class="page-kicker">Dongfang Terminal</p>
+        <p class="page-kicker">东方终端</p>
         <h1 class="page-title">东方财富数据看板</h1>
         <p class="page-subtitle">
           把行业热度、股票池、盘口强弱和长周期 K 线放到同一个交易界面里，先扫全局，再下钻细节。
@@ -28,7 +28,7 @@
     <section class="workspace-shell">
       <div class="workspace-header">
         <div>
-          <p class="section-kicker">Market Workspace</p>
+          <p class="section-kicker">行情工作区</p>
           <h2 class="workspace-title">{{ activeMeta.label }}</h2>
           <p class="workspace-note">{{ activeMeta.description }}</p>
         </div>
