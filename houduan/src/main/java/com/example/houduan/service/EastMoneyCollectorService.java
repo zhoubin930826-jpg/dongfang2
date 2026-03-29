@@ -116,10 +116,14 @@ public class EastMoneyCollectorService {
 
     private void doCollectStockDetails() {
         Map<String, EastMoneyStorageService.StockTarget> stockTargetsByCode = new LinkedHashMap<>();
-        int pageLimit = resolveCollectedStockPoolPages();
+        Optional<StockPoolResponseEntity> referencePage = eastMoneyStorageService.findLatestStockPool(1);
+        int pageLimit = referencePage
+            .map(entity -> resolvePageLimit(entity.getRawJson()))
+            .orElse(0);
+        LocalDateTime referenceFetchedAt = referencePage.map(StockPoolResponseEntity::getFetchedAt).orElse(null);
 
         for (int pageNo = 1; pageNo <= pageLimit; pageNo++) {
-            List<EastMoneyStorageService.StockTarget> stockTargets = eastMoneyStorageService.findLatestStockPool(pageNo)
+            List<EastMoneyStorageService.StockTarget> stockTargets = eastMoneyStorageService.findLatestStockPoolAtOrBefore(pageNo, referenceFetchedAt)
                 .map(StockPoolResponseEntity::getRawJson)
                 .map(eastMoneyStorageService::extractStockTargets)
                 .orElse(Collections.emptyList());
@@ -148,14 +152,6 @@ public class EastMoneyCollectorService {
             processedSymbolCount++;
             pauseIfNeeded("stock-detail", processedSymbolCount, stockDetailPauseAfterSymbols, stockDetailPauseMs);
         }
-    }
-
-    private int resolveCollectedStockPoolPages() {
-        Optional<StockPoolResponseEntity> firstPage = eastMoneyStorageService.findLatestStockPool(1);
-        if (firstPage.isEmpty()) {
-            return 0;
-        }
-        return resolvePageLimit(firstPage.get().getRawJson());
     }
 
     private int resolvePageLimit(String firstPageRawJson) {

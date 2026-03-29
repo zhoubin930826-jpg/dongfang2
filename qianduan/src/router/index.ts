@@ -22,13 +22,19 @@ const routes: RouteRecordRaw[] = [
     path: '/stock-real',
     name: 'StockReal',
     component: () => import('../views/StockReal.vue'),
-    meta: { title: '实盘委托买卖数据' }
+    meta: { title: '个股实盘数据' }
   },
   {
     path: '/stock-pool',
     name: 'StockPool',
     component: () => import('../views/StockPool.vue'),
-    meta: { title: '读取股票池' }
+    meta: { title: '股票池' }
+  },
+  {
+    path: '/stock-analysis',
+    name: 'StockAnalysis',
+    component: () => import('../views/StockAnalysis.vue'),
+    meta: { title: '实时选股分析' }
   }
 ]
 

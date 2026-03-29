@@ -96,6 +96,13 @@ public class EastMoneyStorageService {
         return stockPoolResponseRepository.findTopByPageNoOrderByFetchedAtDesc(pageNo);
     }
 
+    public Optional<StockPoolResponseEntity> findLatestStockPoolAtOrBefore(int pageNo, LocalDateTime fetchedAt) {
+        if (fetchedAt == null) {
+            return findLatestStockPool(pageNo);
+        }
+        return stockPoolResponseRepository.findTopByPageNoAndFetchedAtLessThanEqualOrderByFetchedAtDesc(pageNo, fetchedAt);
+    }
+
     public Optional<IndustryKlineResponseEntity> findLatestIndustryKline(String industryCode) {
         return industryKlineResponseRepository.findTopByIndustryCodeOrderByFetchedAtDesc(industryCode);
     }

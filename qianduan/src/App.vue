@@ -5,7 +5,7 @@
         <p class="page-kicker">东方终端</p>
         <h1 class="page-title">东方财富数据看板</h1>
         <p class="page-subtitle">
-          把行业热度、股票池、盘口强弱和长周期 K 线放到同一个交易界面里，先扫全局，再下钻细节。
+          把行业热度、股票池、盘口强弱和实时选股分析放到同一个工作台里，先看市场环境，再下钻到具体股票。
         </p>
       </div>
 
@@ -19,8 +19,8 @@
           <strong>{{ activeMeta.focus }}</strong>
         </div>
         <div class="hero-badge">
-          <span class="hero-badge-label">界面风格</span>
-          <strong>行情终端 / 看盘工作台</strong>
+          <span class="hero-badge-label">使用方式</span>
+          <strong>先扫市场，再挑股票</strong>
         </div>
       </div>
     </header>
@@ -45,11 +45,14 @@
         <el-tab-pane label="行业板块 K 线数据" name="industry-kline">
           <router-view v-if="activeTab === 'industry-kline'" />
         </el-tab-pane>
-        <el-tab-pane label="实盘委托买卖数据" name="stock-real">
+        <el-tab-pane label="个股实盘数据" name="stock-real">
           <router-view v-if="activeTab === 'stock-real'" />
         </el-tab-pane>
-        <el-tab-pane label="读取股票池" name="stock-pool">
+        <el-tab-pane label="股票池" name="stock-pool">
           <router-view v-if="activeTab === 'stock-pool'" />
+        </el-tab-pane>
+        <el-tab-pane label="实时选股分析" name="stock-analysis">
+          <router-view v-if="activeTab === 'stock-analysis'" />
         </el-tab-pane>
       </el-tabs>
     </section>
@@ -60,40 +63,46 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-const route = useRoute()
-const router = useRouter()
-const activeTab = ref(route.path.slice(1) || 'industry-base')
-const defaultTabKey = 'industry-base'
-type TabMeta = { label: string; focus: string; description: string }
-
-const defaultTabMeta: TabMeta = {
-  label: '行业板块基础数据',
-  focus: '强弱分布、主力流向、板块热度',
-  description: '适合先做全局扫描，快速找出当天最强、最弱和资金关注度最高的行业方向。'
+type TabMeta = {
+  label: string
+  focus: string
+  description: string
 }
 
+const route = useRoute()
+const router = useRouter()
+const defaultTabKey = 'industry-base'
+const activeTab = ref(route.path.slice(1) || defaultTabKey)
+
 const tabMeta: Record<string, TabMeta> = {
-  [defaultTabKey]: defaultTabMeta,
+  'industry-base': {
+    label: '行业板块基础数据',
+    focus: '板块强弱、资金方向、行业热度',
+    description: '先看全市场行业分布，找到当天最强、最弱和主力关注最多的方向。'
+  },
   'industry-kline': {
     label: '行业板块 K 线数据',
-    focus: '历史趋势、波动结构、换手变化',
-    description: '从价格和成交维度下钻到单个行业，把短线热度放回更长的趋势背景里。'
+    focus: '历史趋势、波动结构、成交变化',
+    description: '把短线行业热度放回更长周期里，帮助判断趋势是否可持续。'
   },
   'stock-real': {
-    label: '实盘委托买卖数据',
-    focus: '盘口强弱、委差委比、即时成交',
-    description: '更像盯盘界面，适合判断一只股票当前的买卖力量和交易活跃度。'
+    label: '个股实盘数据',
+    focus: '盘口强弱、委比委差、即时成交',
+    description: '适合盯单只股票的实时状态，观察买卖盘力量和交易活跃度。'
   },
   'stock-pool': {
-    label: '读取股票池',
-    focus: '全市场列表、板块归类、联动查询',
-    description: '把全市场股票按一张工作表铺开，便于从池子里继续跳转到实盘和 K 线。'
+    label: '股票池',
+    focus: '全市场列表、行业归类、快速联动',
+    description: '把全市场股票铺开，先筛行业和概念，再跳到个股盘口和 K 线。'
+  },
+  'stock-analysis': {
+    label: '实时选股分析',
+    focus: '市场环境、热点行业、候选评分',
+    description: '把大盘环境、板块强弱和股票池评分放到一起，快速找出当前值得重点跟踪的标的。'
   }
 }
 
-const activeMeta = computed<TabMeta>(() => {
-  return tabMeta[activeTab.value] || defaultTabMeta
-})
+const activeMeta = computed<TabMeta>(() => tabMeta[activeTab.value] ?? tabMeta[defaultTabKey]!)
 
 const handleTabClick = (tab: { props: { name: string } }) => {
   router.push(`/${tab.props.name}`)
